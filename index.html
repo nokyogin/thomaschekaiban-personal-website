@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Thomas Chekaiban</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg: #fff;
+      --fg: #111;
+      --muted: #666;
+      --bio-bg: #f9f9f9;
+      --bio-border: #eee;
+      --divider: #ddd;
+      --pill-border: #e0e0e0;
+      --pill-hover-bg: #111;
+      --pill-hover-fg: #fff;
+      --link-border: #ccc;
+      --bio-color: #555;
+      --card-shadow-1: rgba(0,0,0,0.04);
+      --card-shadow-2: rgba(0,0,0,0.06);
+      --card-highlight: rgba(255,255,255,0.7);
+    }
+
+    html.dark {
+      --bg: #0a0a0a;
+      --fg: #e8e8e8;
+      --muted: #888;
+      --bio-bg: #141414;
+      --bio-border: #1e1e1e;
+      --divider: #333;
+      --pill-border: #2a2a2a;
+      --pill-hover-bg: #e8e8e8;
+      --pill-hover-fg: #0a0a0a;
+      --link-border: #444;
+      --bio-color: #999;
+      --card-shadow-1: rgba(0,0,0,0.2);
+      --card-shadow-2: rgba(0,0,0,0.3);
+      --card-highlight: rgba(255,255,255,0.04);
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--fg);
+      background: var(--bg);
+      min-height: 100dvh;
+      padding: 3.5rem 1.5rem 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      transition: background 0.3s ease, color 0.3s ease;
+      overflow-x: hidden;
+    }
+
+    @media (min-width: 640px) {
+      body {
+        padding: 6rem 2rem 2rem;
+      }
+    }
+
+    main {
+      max-width: 540px;
+      width: 100%;
+      position: relative;
+    }
+
+    .theme-switch {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.35rem;
+      margin-top: auto;
+      padding-top: 3rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      cursor: pointer;
+      background: none;
+      border: none;
+      font-family: inherit;
+      padding: 0.5rem;
+      transition: color 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+      opacity: 0;
+      animation: rise 0.6s ease-out 0.3s forwards;
+    }
+
+    .theme-switch:hover {
+      color: var(--fg);
+    }
+
+    .theme-switch svg {
+      width: 15px;
+      height: 15px;
+    }
+
+    .theme-switch .icon-sun { display: none; }
+    .theme-switch .icon-moon { display: inline; }
+    html.dark .theme-switch .icon-sun { display: inline; }
+    html.dark .theme-switch .icon-moon { display: none; }
+
+    .name {
+      font-size: clamp(1.7rem, 5.5vw, 2.6rem);
+      font-weight: 600;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 1rem;
+      text-align: center;
+      white-space: nowrap;
+      opacity: 0;
+      animation: rise 0.6s ease-out forwards;
+    }
+
+    .roles {
+      font-size: clamp(1.05rem, 2.8vw, 1.15rem);
+      color: var(--muted);
+      line-height: 1.7;
+      margin-bottom: 2rem;
+      text-align: center;
+      opacity: 0;
+      animation: rise 0.6s ease-out 0.1s forwards;
+    }
+
+    .roles span { font-weight: 600; color: var(--roles-accent); }
+
+    :root { --roles-accent: #333; }
+    html.dark { --roles-accent: #bbb; }
+
+    .bio .link-vizzia { color: #e07020; font-weight: 600; border-bottom-color: rgba(224,112,32,0.3); }
+    .bio .link-vizzia:hover { border-bottom-color: #e07020; }
+    .bio .link-siwa { color: #3b82f6; font-weight: 600; border-bottom-color: rgba(59,130,246,0.3); }
+    .bio .link-siwa:hover { border-bottom-color: #3b82f6; }
+
+    .divider {
+      width: 32px;
+      height: 1px;
+      background: var(--divider);
+      margin: 0 auto 2rem;
+      opacity: 0;
+      animation: rise 0.6s ease-out 0.12s forwards;
+    }
+
+    .bio {
+      font-size: 1.05rem;
+      color: var(--bio-color);
+      line-height: 1.7;
+      text-align: center;
+      margin-bottom: 2.5rem;
+      padding: 1.25rem 1.5rem;
+      background: var(--bio-bg);
+      border: 1px solid var(--bio-border);
+      border-radius: 14px;
+      box-shadow:
+        0 2px 8px var(--card-shadow-1),
+        0 8px 24px var(--card-shadow-2),
+        0 1px 0 var(--card-highlight) inset;
+      transition: background 0.3s ease;
+      opacity: 0;
+      animation: rise 0.6s ease-out 0.14s forwards;
+    }
+
+    .bio a {
+      color: var(--fg);
+      text-decoration: none;
+      font-weight: 500;
+      border-bottom: 1px solid var(--link-border);
+      transition: border-color 0.2s;
+    }
+
+    .bio a:hover {
+      border-color: var(--fg);
+    }
+
+    .email-btn {
+      position: relative;
+      min-width: 120px;
+      justify-content: center;
+      overflow: hidden;
+    }
+    .email-btn .default-state,
+    .email-btn .copied-state {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .email-btn .default-state {
+      opacity: 1;
+      transition: opacity 0.15s ease;
+    }
+    .email-btn .copied-state {
+      position: absolute;
+      inset: 0;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease 0.1s;
+    }
+    .email-btn.copied .default-state {
+      opacity: 0;
+      transition: opacity 0.1s ease;
+    }
+    .email-btn.copied .copied-state {
+      opacity: 1;
+      transition: opacity 0.25s ease 0.05s;
+    }
+    .links a.email-btn.copied,
+    .links a.email-btn.copied:hover {
+      background: #16a34a;
+      color: #fff;
+      border-color: #16a34a;
+      box-shadow: none;
+    }
+
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.5rem;
+      list-style: none;
+      opacity: 0;
+      animation: rise 0.6s ease-out 0.2s forwards;
+    }
+
+    .links a {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      color: var(--fg);
+      text-decoration: none;
+      font-size: 0.95rem;
+      font-weight: 500;
+      padding: 0.55rem 1rem;
+      border: 1px solid var(--pill-border);
+      border-radius: 100px;
+      transition: all 0.2s ease;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .links a:hover {
+      background: var(--pill-hover-bg);
+      color: var(--pill-hover-fg);
+      border-color: var(--pill-hover-bg);
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .links a:active {
+      transform: translateY(0) scale(0.97);
+      box-shadow: none;
+    }
+
+    .links a svg {
+      width: 16px;
+      height: 16px;
+      flex-shrink: 0;
+    }
+
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(12px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @media (max-width: 380px) {
+      .links {
+        flex-direction: column;
+      }
+      .links a {
+        justify-content: center;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1 class="name">Thomas Chekaiban</h1>
+    <p class="roles">Head of Product <span>@Vizzia</span><br>Co-founder <span>@Siwa</span></p>
+    <div class="divider"></div>
+    <p class="bio">10+ years shaping products across B2B and B2C — currently leading product at <a href="https://vizzia.com" target="_blank" rel="noopener" class="link-vizzia">Vizzia</a>, where I focus on building tools that help keep cities clean and safe.<br><br>On the side, I created <a href="https://siwa.io" target="_blank" rel="noopener" class="link-siwa">Siwa</a>, a platform dedicated to word and puzzle games for players who love a good challenge.</p>
+    <nav class="links">
+      <a href="https://linkedin.com/in/thomaschekaiban" target="_blank" rel="noopener">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/></svg>
+        LinkedIn
+      </a>
+      <a id="email-btn" href="#" onclick="return false;" class="email-btn">
+        <span class="default-state">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+          Email
+        </span>
+        <span class="copied-state">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+          Copied!
+        </span>
+      </a>
+      <a href="https://calendly.com/thomaschekaiban/intro" target="_blank" rel="noopener">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>
+        Let's talk
+      </a>
+    </nav>
+  </main>
+  <button class="theme-switch" aria-label="Toggle theme">
+    <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+    <span class="toggle-label">Switch to dark mode</span>
+  </button>
+  <script>
+    (function(){
+      // Theme toggle
+      var html = document.documentElement;
+      var toggle = document.querySelector('.theme-switch');
+      var label = document.querySelector('.toggle-label');
+      var stored = localStorage.getItem('theme');
+      if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        html.classList.add('dark');
+      }
+      function updateLabel() {
+        label.textContent = html.classList.contains('dark') ? 'Switch to light mode' : 'Switch to dark mode';
+      }
+      updateLabel();
+      toggle.addEventListener('click', function() {
+        html.classList.toggle('dark');
+        localStorage.setItem('theme', html.classList.contains('dark') ? 'dark' : 'light');
+        updateLabel();
+      });
+
+      // Email copy
+      var a='thomaschekaiban',b='gmail.com',e=document.getElementById('email-btn');
+      e.addEventListener('click',function(){
+        navigator.clipboard.writeText(a+'@'+b);
+        e.classList.add('copied');
+        setTimeout(function(){e.classList.remove('copied');},1500);
+      });
+
+    })();
+  </script>
+</body>
+</html>
