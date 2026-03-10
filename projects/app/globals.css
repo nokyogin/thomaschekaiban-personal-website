@@ -35,6 +35,12 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+@media (max-width: 768px) {
+  .dashboard-content {
+    padding-top: 4rem !important;
+  }
+}
+
 @keyframes rise {
   from {
     opacity: 0;
