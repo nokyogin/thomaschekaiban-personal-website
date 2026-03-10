@@ -12,6 +12,7 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
     >
       <Sidebar />
       <main
+        className="dashboard-content"
         style={{
           flex: 1,
           minWidth: 0,
