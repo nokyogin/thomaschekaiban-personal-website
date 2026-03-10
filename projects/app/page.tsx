@@ -1,56 +1,42 @@
-import { projects } from "@/data/projects";
-import { ProjectCard } from "@/components/project-card";
-import { ThemeToggle } from "@/components/theme-toggle";
+import { DashboardLayout } from "@/components/dashboard-layout";
 
 export default function DashboardPage() {
   return (
-    <div
-      style={{
-        maxWidth: 640,
-        margin: "0 auto",
-        padding: "3.5rem 1.5rem 2rem",
-      }}
-    >
-      <h1
-        style={{
-          fontSize: "clamp(1.5rem, 5vw, 2rem)",
-          fontWeight: 600,
-          letterSpacing: "-0.02em",
-          textAlign: "center",
-          marginBottom: "0.5rem",
-          opacity: 0,
-          animation: "rise 0.6s ease-out forwards",
-        }}
-      >
-        Projects
-      </h1>
-      <p
-        style={{
-          color: "var(--muted)",
-          textAlign: "center",
-          fontSize: "0.95rem",
-          marginBottom: "2.5rem",
-          opacity: 0,
-          animation: "rise 0.6s ease-out 0.1s forwards",
-        }}
-      >
-        Personal project hub
-      </p>
+    <DashboardLayout>
       <div
         style={{
-          display: "grid",
-          gap: "1rem",
-          opacity: 0,
-          animation: "rise 0.6s ease-out 0.2s forwards",
+          flex: 1,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "2rem",
         }}
       >
-        {projects.map((project) => (
-          <ProjectCard key={project.slug} project={project} />
-        ))}
+        <div style={{ textAlign: "center" }}>
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="var(--muted)"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            style={{ marginBottom: "1rem", opacity: 0.5 }}
+          >
+            <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+            <path d="M14 2v4a2 2 0 0 0 2 2h4" />
+          </svg>
+          <p
+            style={{
+              color: "var(--muted)",
+              fontSize: "0.95rem",
+            }}
+          >
+            Select a project from the sidebar
+          </p>
+        </div>
       </div>
-      <div style={{ display: "flex", justifyContent: "center", marginTop: "2rem" }}>
-        <ThemeToggle />
-      </div>
-    </div>
+    </DashboardLayout>
   );
 }
