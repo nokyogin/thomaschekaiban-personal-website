@@ -4,6 +4,9 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Projects — Thomas Chekaiban",
   description: "Personal project hub",
+  icons: {
+    icon: "/favicon.png",
+  },
 };
 
 export default function RootLayout({
