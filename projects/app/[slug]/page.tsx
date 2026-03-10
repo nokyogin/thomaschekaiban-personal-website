@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { projects } from "@/data/projects";
 import { DashboardLayout } from "@/components/dashboard-layout";
+import { HealthDashboard } from "@/components/health-dashboard";
 
 export function generateStaticParams() {
   return projects.map((p) => ({ slug: p.slug }));
@@ -16,6 +17,14 @@ export default async function ProjectPage({
 
   if (!project) {
     notFound();
+  }
+
+  if (slug === "health") {
+    return (
+      <DashboardLayout>
+        <HealthDashboard />
+      </DashboardLayout>
+    );
   }
 
   return (
