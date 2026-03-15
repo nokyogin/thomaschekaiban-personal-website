@@ -249,14 +249,14 @@ const rules: Array<(ctx: RecommendationContext) => Problem | null> = [
 
 /**
  * Evaluate all recommendation rules against the current data.
- * Returns the top N problems sorted by severity (highest first).
+ * Returns all problems sorted by severity (highest first), or top N if specified.
  * This function is fully dynamic — add new rules to the `rules` array
  * and they will automatically be evaluated when data changes.
  */
 export function evaluateProblems(
   data: HealthRecord[],
   profile: UserProfile,
-  topN: number = 3
+  topN?: number
 ): Problem[] {
   if (data.length === 0) return [];
 
@@ -285,5 +285,5 @@ export function evaluateProblems(
 
   const deduped = Array.from(byMetric.values());
   deduped.sort((a, b) => b.severity - a.severity);
-  return deduped.slice(0, topN);
+  return topN ? deduped.slice(0, topN) : deduped;
 }
