@@ -283,6 +283,198 @@ function Chart({
   );
 }
 
+interface Insight {
+  label: string;
+  value: string;
+  status: "good" | "warning" | "neutral";
+  detail: string;
+}
+
+function getInsights(data: HealthRecord[], metric: MetricConfig, filteredData: HealthRecord[]): Insight[] {
+  const latest = data[data.length - 1];
+  const filtered = filteredData;
+  const values = filtered.map((d) => d[metric.key] as number);
+  const current = latest[metric.key] as number;
+  const first = filtered[0]?.[metric.key] as number;
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const change = current - first;
+
+  // Calculate trend (last 5 data points slope)
+  const recentN = Math.min(5, values.length);
+  const recentValues = values.slice(-recentN);
+  const trendSlope = recentValues.length > 1
+    ? (recentValues[recentValues.length - 1] - recentValues[0]) / (recentValues.length - 1)
+    : 0;
+
+  // Calculate volatility (standard deviation)
+  const stdDev = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length);
+
+  const fmt = (v: number) => metric.decimals === 0 ? v.toFixed(0) : v.toFixed(metric.decimals);
+
+  const insights: Insight[] = [];
+
+  switch (metric.key) {
+    case "weight": {
+      const isStable = stdDev < 1;
+      const trending = trendSlope > 0.1 ? "up" : trendSlope < -0.1 ? "down" : "stable";
+      insights.push({
+        label: "Trend",
+        value: trending === "up" ? `+${fmt(trendSlope)}/reading` : trending === "down" ? `${fmt(trendSlope)}/reading` : "Stable",
+        status: trending === "stable" ? "good" : "neutral",
+        detail: trending === "stable"
+          ? "Your weight is holding steady — great consistency."
+          : trending === "up"
+            ? "Weight trending up. Check if this is muscle gain (body fat stable?) or unwanted gain."
+            : "Weight trending down. Confirm body fat is dropping, not muscle mass.",
+      });
+      insights.push({
+        label: "Stability",
+        value: `${fmt(stdDev)} kg variance`,
+        status: isStable ? "good" : "warning",
+        detail: isStable
+          ? "Low fluctuation — your nutrition and training are consistent."
+          : "Higher fluctuation — could be water retention, irregular meals, or training load changes.",
+      });
+      insights.push({
+        label: "Range",
+        value: `${fmt(min)} – ${fmt(max)} kg`,
+        status: (max - min) < 3 ? "good" : "warning",
+        detail: (max - min) < 3
+          ? "Tight range shows good control over your weight."
+          : `${fmt(max - min)} kg swing. Track what weeks correlate with extremes.`,
+      });
+      break;
+    }
+    case "bodyFat": {
+      const athleticRange = current >= 6 && current <= 17;
+      insights.push({
+        label: "Athletic Range",
+        value: athleticRange ? "In range" : current < 6 ? "Too low" : "Above range",
+        status: athleticRange ? "good" : "warning",
+        detail: athleticRange
+          ? `${fmt(current)}% is within the athletic range (6-17%). You're carrying functional leanness.`
+          : current < 6
+            ? "Below 6% can impair performance and hormonal health. Consider increasing slightly."
+            : "Above 17% for an athletic male. A slight cut could improve power-to-weight.",
+      });
+      insights.push({
+        label: "Period Change",
+        value: `${change > 0 ? "+" : ""}${fmt(change)}%`,
+        status: Math.abs(change) < 1 ? "good" : change > 1 ? "warning" : "good",
+        detail: Math.abs(change) < 1
+          ? "Body fat is holding steady — good maintenance."
+          : change > 1
+            ? "Rising body fat. Revisit caloric surplus or cardio volume."
+            : "Dropping body fat — ensure you're not losing muscle with it.",
+      });
+      break;
+    }
+    case "muscleMass": {
+      const gaining = change > 0;
+      insights.push({
+        label: "Period Change",
+        value: `${change > 0 ? "+" : ""}${fmt(change)} kg`,
+        status: gaining ? "good" : change < -0.5 ? "warning" : "neutral",
+        detail: gaining
+          ? "Muscle mass is increasing — your training stimulus and recovery are working."
+          : change < -0.5
+            ? "Losing muscle. Check protein intake (aim 1.6-2.2g/kg/day) and training volume."
+            : "Muscle mass stable. To grow, progressively overload or increase protein.",
+      });
+      insights.push({
+        label: "Muscle-to-Weight",
+        value: `${((latest.muscleMass / latest.weight) * 100).toFixed(1)}%`,
+        status: (latest.muscleMass / latest.weight) > 0.75 ? "good" : "neutral",
+        detail: (latest.muscleMass / latest.weight) > 0.75
+          ? "Excellent muscle-to-weight ratio for an athlete."
+          : "Room to improve your muscle-to-weight ratio through recomposition.",
+      });
+      break;
+    }
+    case "skeletalMuscleMass": {
+      const smRatio = (latest.skeletalMuscleMass / latest.weight) * 100;
+      insights.push({
+        label: "SMM Ratio",
+        value: `${smRatio.toFixed(1)}% of body weight`,
+        status: smRatio > 40 ? "good" : smRatio > 35 ? "neutral" : "warning",
+        detail: smRatio > 40
+          ? "Above 40% skeletal muscle ratio — strong athletic composition."
+          : "Below 40%. Focus on compound lifts and adequate protein for hypertrophy.",
+      });
+      insights.push({
+        label: "Trend",
+        value: `${change > 0 ? "+" : ""}${fmt(change)} kg`,
+        status: change >= 0 ? "good" : "warning",
+        detail: change >= 0
+          ? "Skeletal muscle is maintained or growing — training is effective."
+          : "Declining skeletal muscle. Prioritize resistance training and recovery.",
+      });
+      break;
+    }
+    case "bmr": {
+      insights.push({
+        label: "Daily Baseline",
+        value: `${latest.bmr} kcal`,
+        status: "neutral",
+        detail: `You burn ~${latest.bmr} kcal/day at rest. With athletic activity, your TDEE is likely ${Math.round(latest.bmr * 1.6)}–${Math.round(latest.bmr * 1.9)} kcal/day.`,
+      });
+      insights.push({
+        label: "Period Change",
+        value: `${change > 0 ? "+" : ""}${change.toFixed(0)} kcal`,
+        status: change >= 0 ? "good" : "warning",
+        detail: change >= 0
+          ? "BMR stable or rising — indicates maintained or increased lean mass."
+          : "BMR declining may signal muscle loss. Reassess training and nutrition.",
+      });
+      break;
+    }
+    case "visceralFat": {
+      const level = current;
+      insights.push({
+        label: "Health Level",
+        value: level <= 9 ? "Healthy" : level <= 14 ? "Elevated" : "High",
+        status: level <= 9 ? "good" : "warning",
+        detail: level <= 9
+          ? `Level ${level} is in the healthy range (1-9). Low visceral fat reduces risk of metabolic disease.`
+          : `Level ${level} is elevated. Visceral fat is the most dangerous type — prioritize steady-state cardio and reduce refined carbs.`,
+      });
+      insights.push({
+        label: "Trend",
+        value: change === 0 ? "Stable" : `${change > 0 ? "+" : ""}${change.toFixed(0)}`,
+        status: change <= 0 ? "good" : "warning",
+        detail: change <= 0
+          ? "Visceral fat stable or decreasing — keep it up."
+          : "Rising visceral fat despite training. Check stress, sleep, and alcohol intake.",
+      });
+      break;
+    }
+    case "water": {
+      const wellHydrated = current >= 55;
+      insights.push({
+        label: "Hydration",
+        value: wellHydrated ? "Well hydrated" : "Low",
+        status: wellHydrated ? "good" : "warning",
+        detail: wellHydrated
+          ? `${fmt(current)}% body water is good for athletic performance. Stay consistent.`
+          : `${fmt(current)}% is on the low side. Dehydration impairs strength, endurance, and recovery. Aim for 55%+.`,
+      });
+      insights.push({
+        label: "Stability",
+        value: `${fmt(stdDev)}% variance`,
+        status: stdDev < 1 ? "good" : "warning",
+        detail: stdDev < 1
+          ? "Consistent hydration — your fluid intake habits are solid."
+          : "Fluctuating hydration. Standardize daily water intake, especially around training.",
+      });
+      break;
+    }
+  }
+
+  return insights;
+}
+
 export function HealthDashboard() {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("weight");
   const [timeRange, setTimeRange] = useState(0); // 0 = all
@@ -305,6 +497,11 @@ export function HealthDashboard() {
   const changeStr =
     metric.decimals === 0 ? change.toFixed(0) : change.toFixed(metric.decimals);
   const changePercent = ((change / firstValue) * 100).toFixed(1);
+
+  const insights = useMemo(
+    () => getInsights(healthData, metric, filteredData),
+    [metric, filteredData]
+  );
 
   return (
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100 }}>
@@ -332,54 +529,66 @@ export function HealthDashboard() {
         </p>
       </div>
 
-      {/* Summary cards */}
+      {/* KPI Tabs */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
-          gap: "0.75rem",
+          gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+          gap: "0.5rem",
           marginBottom: "1.5rem",
           opacity: 0,
           animation: "rise 0.6s ease-out 0.05s forwards",
         }}
       >
-        {[
-          { label: "Weight", value: `${latest.weight} kg`, sub: `Body Fat ${latest.bodyFat}%`, color: "#60a5fa" },
-          { label: "Body Fat", value: `${latest.bodyFat}%`, sub: `Visceral ${latest.visceralFat}`, color: "#f97316" },
-          { label: "Muscle Mass", value: `${latest.muscleMass} kg`, sub: `Skeletal ${latest.skeletalMuscleMass} kg`, color: "#34d399" },
-          { label: "Skeletal Muscle", value: `${latest.skeletalMuscleMass} kg`, sub: `Water ${latest.water}%`, color: "#2dd4bf" },
-          { label: "Visceral Fat", value: `${latest.visceralFat}`, sub: `BMR ${latest.bmr} kcal`, color: "#fb7185" },
-          { label: "BMR", value: `${latest.bmr}`, sub: "kcal/day", color: "#fb923c" },
-        ].map((card) => (
-          <div
-            key={card.label}
-            style={{
-              background: "var(--bio-bg)",
-              border: "1px solid var(--bio-border)",
-              borderRadius: 12,
-              padding: "1rem",
-              borderLeft: `3px solid ${card.color}`,
-            }}
-          >
-            <div
+        {metrics.map((m) => {
+          const isActive = m.key === selectedMetric;
+          const val = latest[m.key] as number;
+          return (
+            <button
+              key={m.key}
+              onClick={() => setSelectedMetric(m.key)}
               style={{
-                fontSize: "0.75rem",
-                color: "var(--muted)",
-                marginBottom: "0.25rem",
-                textTransform: "uppercase",
-                letterSpacing: "0.05em",
+                background: isActive ? m.color + "15" : "var(--bio-bg)",
+                border: `1px solid ${isActive ? m.color + "60" : "var(--bio-border)"}`,
+                borderRadius: 10,
+                padding: "0.65rem 0.75rem",
+                cursor: "pointer",
+                textAlign: "left",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+                display: "flex",
+                flexDirection: "column",
+                gap: "0.2rem",
+                borderLeft: isActive ? `3px solid ${m.color}` : `1px solid ${isActive ? m.color + "60" : "var(--bio-border)"}`,
               }}
             >
-              {card.label}
-            </div>
-            <div style={{ fontSize: "1.35rem", fontWeight: 600 }}>
-              {card.value}
-            </div>
-            <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-              {card.sub}
-            </div>
-          </div>
-        ))}
+              <span
+                style={{
+                  fontSize: "0.7rem",
+                  color: isActive ? m.color : "var(--muted)",
+                  fontWeight: 500,
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {m.label}
+              </span>
+              <span
+                style={{
+                  fontSize: "1.1rem",
+                  fontWeight: 600,
+                  color: isActive ? "#e8e8e8" : "var(--fg)",
+                }}
+              >
+                {m.decimals === 0 ? val : val.toFixed(m.decimals)}
+                <span style={{ fontSize: "0.7rem", color: "var(--muted)", marginLeft: 2 }}>
+                  {m.unit}
+                </span>
+              </span>
+              <MiniChart data={healthData} metricKey={m.key} color={isActive ? m.color : m.color + "80"} />
+            </button>
+          );
+        })}
       </div>
 
       {/* Chart area */}
@@ -499,149 +708,79 @@ export function HealthDashboard() {
         )}
       </div>
 
-      {/* Metric selector grid */}
+      {/* Insights */}
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-          gap: "0.5rem",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "0.75rem",
           opacity: 0,
           animation: "rise 0.6s ease-out 0.15s forwards",
         }}
       >
-        {metrics.map((m) => {
-          const isActive = m.key === selectedMetric;
-          const val = latest[m.key] as number;
-          return (
-            <button
-              key={m.key}
-              onClick={() => setSelectedMetric(m.key)}
-              style={{
-                background: isActive ? m.color + "15" : "var(--bio-bg)",
-                border: `1px solid ${isActive ? m.color + "60" : "var(--bio-border)"}`,
-                borderRadius: 10,
-                padding: "0.75rem",
-                cursor: "pointer",
-                textAlign: "left",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                flexDirection: "column",
-                gap: "0.25rem",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                }}
-              >
-                <span
-                  style={{
-                    fontSize: "0.75rem",
-                    color: isActive ? m.color : "var(--muted)",
-                    fontWeight: 500,
-                  }}
-                >
-                  {m.label}
-                </span>
-                <span
-                  style={{
-                    fontSize: "0.9rem",
-                    fontWeight: 600,
-                    color: isActive ? "#e8e8e8" : "var(--fg)",
-                  }}
-                >
-                  {m.decimals === 0 ? val : val.toFixed(m.decimals)}
-                  <span style={{ fontSize: "0.7rem", color: "var(--muted)", marginLeft: 2 }}>
-                    {m.unit}
-                  </span>
-                </span>
-              </div>
-              <MiniChart data={healthData} metricKey={m.key} color={m.color} />
-            </button>
-          );
-        })}
-      </div>
-
-      {/* Data table */}
-      <div
-        style={{
-          marginTop: "1.5rem",
-          background: "var(--bio-bg)",
-          border: "1px solid var(--bio-border)",
-          borderRadius: 14,
-          overflow: "hidden",
-          opacity: 0,
-          animation: "rise 0.6s ease-out 0.2s forwards",
-        }}
-      >
-        <div
-          style={{
-            padding: "1rem 1.25rem 0.75rem",
-            fontSize: "0.9rem",
-            fontWeight: 600,
-          }}
-        >
-          Recent Measurements
-        </div>
-        <div style={{ overflowX: "auto" }}>
-          <table
+        {insights.map((insight) => (
+          <div
+            key={insight.label}
             style={{
-              width: "100%",
-              borderCollapse: "collapse",
-              fontSize: "0.8rem",
+              background: "var(--bio-bg)",
+              border: "1px solid var(--bio-border)",
+              borderRadius: 12,
+              padding: "1rem 1.25rem",
+              borderLeft: `3px solid ${
+                insight.status === "good"
+                  ? "#4ade80"
+                  : insight.status === "warning"
+                    ? "#fbbf24"
+                    : "var(--pill-border)"
+              }`,
             }}
           >
-            <thead>
-              <tr
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                marginBottom: "0.4rem",
+              }}
+            >
+              <span
                 style={{
-                  borderTop: "1px solid var(--bio-border)",
-                  borderBottom: "1px solid var(--bio-border)",
+                  fontSize: "0.75rem",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.04em",
+                  color: "var(--muted)",
+                  fontWeight: 500,
                 }}
               >
-                {["Date", "Weight", "Body Fat", "Muscle", "Skel. Muscle", "BMR", "V.Fat", "Water"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      style={{
-                        padding: "0.6rem 0.75rem",
-                        textAlign: "left",
-                        fontWeight: 500,
-                        color: "var(--muted)",
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
-              </tr>
-            </thead>
-            <tbody>
-              {[...healthData].reverse().slice(0, 15).map((row, i) => (
-                <tr
-                  key={i}
-                  style={{
-                    borderBottom: "1px solid var(--bio-border)",
-                  }}
-                >
-                  <td style={{ padding: "0.5rem 0.75rem", whiteSpace: "nowrap" }}>
-                    {formatDateLong(row.time)}
-                  </td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.weight}</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.bodyFat}%</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.muscleMass}</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.skeletalMuscleMass}</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.bmr}</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.visceralFat}</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.water}%</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                {insight.label}
+              </span>
+              <span
+                style={{
+                  fontSize: "0.85rem",
+                  fontWeight: 600,
+                  color:
+                    insight.status === "good"
+                      ? "#4ade80"
+                      : insight.status === "warning"
+                        ? "#fbbf24"
+                        : "var(--fg)",
+                }}
+              >
+                {insight.value}
+              </span>
+            </div>
+            <p
+              style={{
+                fontSize: "0.8rem",
+                color: "var(--muted)",
+                lineHeight: 1.5,
+                margin: 0,
+              }}
+            >
+              {insight.detail}
+            </p>
+          </div>
+        ))}
       </div>
     </div>
   );
