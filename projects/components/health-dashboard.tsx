@@ -131,18 +131,21 @@ function Chart({
     padL + chartW
   },${padT + chartH}`;
 
-  // Y-axis ticks
   const yTicks = 5;
   const yTickValues = Array.from({ length: yTicks }, (_, i) => {
     const v = niceMin + (i / (yTicks - 1)) * niceRange;
     return metric.decimals === 0 ? Math.round(v) : +v.toFixed(metric.decimals);
   });
 
-  // X-axis labels — show ~6 labels
   const labelCount = Math.min(6, data.length);
   const labelIndices = Array.from({ length: labelCount }, (_, i) =>
     Math.round((i / (labelCount - 1)) * (data.length - 1))
   );
+
+  const tooltipText = hoveredIndex !== null
+    ? `${metric.decimals === 0 ? values[hoveredIndex] : values[hoveredIndex].toFixed(metric.decimals)} ${metric.unit}`
+    : "";
+  const tooltipWidth = tooltipText.length * 7.5 + 16;
 
   return (
     <svg
@@ -156,7 +159,6 @@ function Chart({
         </linearGradient>
       </defs>
 
-      {/* Grid lines */}
       {yTickValues.map((v, i) => (
         <line
           key={i}
@@ -169,7 +171,6 @@ function Chart({
         />
       ))}
 
-      {/* Y-axis labels */}
       {yTickValues.map((v, i) => (
         <text
           key={i}
@@ -184,7 +185,6 @@ function Chart({
         </text>
       ))}
 
-      {/* X-axis labels */}
       {labelIndices.map((idx) => (
         <text
           key={idx}
@@ -199,10 +199,8 @@ function Chart({
         </text>
       ))}
 
-      {/* Area fill */}
       <polygon points={fillPoints} fill={`url(#grad-${metric.key})`} />
 
-      {/* Line */}
       <polyline
         points={points}
         fill="none"
@@ -212,7 +210,6 @@ function Chart({
         strokeLinejoin="round"
       />
 
-      {/* Data points */}
       {values.map((v, i) => (
         <circle
           key={i}
@@ -226,7 +223,6 @@ function Chart({
         />
       ))}
 
-      {/* Hover areas */}
       {values.map((_, i) => (
         <rect
           key={`hover-${i}`}
@@ -240,32 +236,160 @@ function Chart({
         />
       ))}
 
-      {/* Inline value label on hover */}
       {hoveredIndex !== null && (
-        <text
-          x={getX(hoveredIndex)}
-          y={getY(values[hoveredIndex]) - 12}
-          textAnchor="middle"
-          fill={metric.color}
-          fontSize="11"
-          fontWeight="600"
-          fontFamily="Inter, sans-serif"
-        >
-          {metric.decimals === 0
-            ? values[hoveredIndex]
-            : values[hoveredIndex].toFixed(metric.decimals)} {metric.unit}
-        </text>
+        <g>
+          <rect
+            x={getX(hoveredIndex) - tooltipWidth / 2}
+            y={getY(values[hoveredIndex]) - 32}
+            width={tooltipWidth}
+            height="22"
+            rx="6"
+            fill="#222"
+            stroke="#333"
+            strokeWidth="1"
+          />
+          <text
+            x={getX(hoveredIndex)}
+            y={getY(values[hoveredIndex]) - 17}
+            textAnchor="middle"
+            fill="#fff"
+            fontSize="11"
+            fontWeight="600"
+            fontFamily="Inter, sans-serif"
+          >
+            {tooltipText}
+          </text>
+          <text
+            x={getX(hoveredIndex)}
+            y={padT + chartH + 16}
+            textAnchor="middle"
+            fill="#888"
+            fontSize="10"
+            fontFamily="Inter, sans-serif"
+          >
+            {formatDate(data[hoveredIndex].time)}
+          </text>
+        </g>
       )}
     </svg>
   );
 }
 
-interface Insight {
-  label: string;
-  value: string;
-  status: "good" | "warning" | "neutral";
-  detail: string;
-  action?: string;
+interface Problem {
+  metricLabel: string;
+  metricColor: string;
+  severity: number;
+  title: string;
+  action: string;
+}
+
+function getTopProblems(data: HealthRecord[]): Problem[] {
+  const latest = data[data.length - 1];
+  const first = data[0];
+  const values = (key: MetricKey) => data.map((d) => d[key] as number);
+  const stdDev = (key: MetricKey) => {
+    const vals = values(key);
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    return Math.sqrt(vals.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / vals.length);
+  };
+
+  const problems: Problem[] = [];
+
+  // Weight stability
+  const weightStd = stdDev("weight");
+  if (weightStd > 2) {
+    problems.push({
+      metricLabel: "Weight",
+      metricColor: "#60a5fa",
+      severity: weightStd,
+      title: `High weight variance (${weightStd.toFixed(1)} kg)`,
+      action: "Weigh yourself at the same time daily (morning, fasted). Track weekly averages. Log meals on high/low weeks — sodium and carb-heavy days cause the biggest swings.",
+    });
+  }
+
+  // Body fat
+  const bf = latest.bodyFat;
+  if (bf > 17) {
+    problems.push({
+      metricLabel: "Body Fat",
+      metricColor: "#f97316",
+      severity: (bf - 17) * 2,
+      title: `Body fat above athletic range (${bf}%)`,
+      action: "Create a mild deficit (~300 kcal/day). Prioritize protein (2g/kg/day). Add 2-3 zone-2 cardio sessions/week. Cut sugary drinks and processed snacks first.",
+    });
+  } else if (bf < 6) {
+    problems.push({
+      metricLabel: "Body Fat",
+      metricColor: "#f97316",
+      severity: (6 - bf) * 3,
+      title: `Body fat dangerously low (${bf}%)`,
+      action: "Increase healthy fats (avocado, nuts, olive oil) to 25-30% of calories. Reduce training volume temporarily. Monitor hormone and energy levels.",
+    });
+  }
+
+  // Muscle mass decline
+  const muscleChange = latest.muscleMass - first.muscleMass;
+  if (muscleChange < -0.5) {
+    problems.push({
+      metricLabel: "Muscle Mass",
+      metricColor: "#34d399",
+      severity: Math.abs(muscleChange) * 2,
+      title: `Losing muscle mass (${muscleChange.toFixed(1)} kg)`,
+      action: "Increase protein to 2g/kg/day. Prioritize compound lifts (squat, deadlift, press) 3-4x/week. Sleep 7-9 hours. Avoid caloric deficits steeper than 300 kcal.",
+    });
+  }
+
+  // Skeletal muscle ratio
+  const smRatio = (latest.skeletalMuscleMass / latest.weight) * 100;
+  if (smRatio < 40) {
+    problems.push({
+      metricLabel: "Skeletal Muscle",
+      metricColor: "#2dd4bf",
+      severity: (40 - smRatio) * 0.8,
+      title: `Skeletal muscle ratio below 40% (${smRatio.toFixed(1)}%)`,
+      action: "Focus on compound movements 3-4x/week with progressive overload. Eat 1.8-2.2g protein/kg/day. Consider creatine monohydrate (5g/day).",
+    });
+  }
+
+  // BMR decline
+  const bmrChange = latest.bmr - first.bmr;
+  if (bmrChange < -20) {
+    problems.push({
+      metricLabel: "BMR",
+      metricColor: "#fb923c",
+      severity: Math.abs(bmrChange) * 0.1,
+      title: `BMR declining (${bmrChange} kcal)`,
+      action: "Increase resistance training frequency. Eat more protein. Take a diet break if you've been cutting for >12 weeks. BMR drops signal muscle loss.",
+    });
+  }
+
+  // Visceral fat
+  const vf = latest.visceralFat;
+  if (vf > 9) {
+    problems.push({
+      metricLabel: "Visceral Fat",
+      metricColor: "#fb7185",
+      severity: (vf - 9) * 3,
+      title: `Visceral fat elevated (level ${vf})`,
+      action: "Add 30 min zone-2 cardio 3-4x/week. Cut refined carbs and alcohol. Manage stress and sleep (cortisol drives visceral fat). Add fiber-rich foods.",
+    });
+  }
+
+  // Hydration
+  const water = latest.water;
+  if (water < 55) {
+    problems.push({
+      metricLabel: "Water",
+      metricColor: "#38bdf8",
+      severity: (55 - water) * 1.5,
+      title: `Low hydration (${water}%)`,
+      action: "Drink 35-40ml per kg of body weight daily. Add 500ml per hour of training. Include electrolytes during intense sessions. Reduce caffeine and alcohol.",
+    });
+  }
+
+  // Sort by severity descending, take top 3
+  problems.sort((a, b) => b.severity - a.severity);
+  return problems.slice(0, 3);
 }
 
 function getTabStatus(data: HealthRecord[], metricKey: MetricKey): "good" | "warning" | "neutral" {
@@ -299,248 +423,64 @@ function getTabStatus(data: HealthRecord[], metricKey: MetricKey): "good" | "war
   }
 }
 
-function getInsights(data: HealthRecord[], metric: MetricConfig, filteredData: HealthRecord[]): Insight[] {
+function getRecommendation(data: HealthRecord[], metric: MetricConfig, filteredData: HealthRecord[]): string | null {
   const latest = data[data.length - 1];
-  const filtered = filteredData;
-  const values = filtered.map((d) => d[metric.key] as number);
+  const values = filteredData.map((d) => d[metric.key] as number);
   const current = latest[metric.key] as number;
-  const first = filtered[0]?.[metric.key] as number;
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const first = filteredData[0]?.[metric.key] as number;
   const change = current - first;
+  const avg = values.reduce((a, b) => a + b, 0) / values.length;
+  const stdDev = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length);
 
-  // Calculate trend (last 5 data points slope)
   const recentN = Math.min(5, values.length);
   const recentValues = values.slice(-recentN);
   const trendSlope = recentValues.length > 1
     ? (recentValues[recentValues.length - 1] - recentValues[0]) / (recentValues.length - 1)
     : 0;
 
-  // Calculate volatility (standard deviation)
-  const stdDev = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length);
-
-  const fmt = (v: number) => metric.decimals === 0 ? v.toFixed(0) : v.toFixed(metric.decimals);
-
-  const insights: Insight[] = [];
-
   switch (metric.key) {
     case "weight": {
-      const isStable = stdDev < 1;
       const trending = trendSlope > 0.1 ? "up" : trendSlope < -0.1 ? "down" : "stable";
-      insights.push({
-        label: "Trend",
-        value: trending === "up" ? `+${fmt(trendSlope)}/reading` : trending === "down" ? `${fmt(trendSlope)}/reading` : "Stable",
-        status: trending === "stable" ? "good" : "neutral",
-        detail: trending === "stable"
-          ? "Your weight is holding steady — great consistency."
-          : trending === "up"
-            ? "Weight trending up. Cross-check body fat — if fat% is stable, it's likely lean mass."
-            : "Weight trending down. Verify body fat is dropping too, not muscle.",
-        action: trending === "stable"
-          ? undefined
-          : trending === "up"
-            ? "Compare with body fat trend. If fat is rising: reduce ~200 kcal/day or add 2 LISS cardio sessions/week."
-            : "Ensure protein is at 1.8-2.2g/kg/day. Add a rest day if training >5x/week.",
-      });
-      insights.push({
-        label: "Stability",
-        value: `${fmt(stdDev)} kg variance`,
-        status: isStable ? "good" : "warning",
-        detail: isStable
-          ? "Low fluctuation — your nutrition and training are consistent."
-          : "Higher fluctuation — likely water retention, irregular meals, or changing training loads.",
-        action: isStable
-          ? undefined
-          : "Weigh yourself at the same time daily (morning, fasted). Track weekly averages instead of daily numbers.",
-      });
-      insights.push({
-        label: "Range",
-        value: `${fmt(min)} – ${fmt(max)} kg`,
-        status: (max - min) < 3 ? "good" : "warning",
-        detail: (max - min) < 3
-          ? "Tight range shows good control over your weight."
-          : `${fmt(max - min)} kg swing. Identify which weeks hit the extremes.`,
-        action: (max - min) < 3
-          ? undefined
-          : "Log meals on high/low weeks. Sodium, carb-heavy days, and dehydration cause the biggest swings.",
-      });
-      break;
+      if (trending === "stable") return "Weight stable — keep current nutrition and training consistent.";
+      if (trending === "up") return "Weight trending up. Compare with body fat — if fat% is rising, reduce ~200 kcal/day or add 2 LISS cardio sessions/week.";
+      return "Weight trending down. Ensure protein is at 1.8-2.2g/kg/day and you're not losing muscle mass.";
     }
     case "bodyFat": {
-      const athleticRange = current >= 6 && current <= 17;
-      insights.push({
-        label: "Athletic Range",
-        value: athleticRange ? "In range" : current < 6 ? "Too low" : "Above range",
-        status: athleticRange ? "good" : "warning",
-        detail: athleticRange
-          ? `${fmt(current)}% is within the athletic range (6-17%). Functional leanness for performance.`
-          : current < 6
-            ? "Below 6% impairs hormones, immunity, and recovery."
-            : "Above 17% for an active male — trimming down improves power-to-weight.",
-        action: athleticRange
-          ? undefined
-          : current < 6
-            ? "Increase healthy fats (avocado, nuts, olive oil) to 25-30% of calories. Reduce training volume temporarily."
-            : "Create a mild deficit (~300 kcal). Prioritize protein, add 2-3 zone-2 cardio sessions/week.",
-      });
-      insights.push({
-        label: "Period Change",
-        value: `${change > 0 ? "+" : ""}${fmt(change)}%`,
-        status: Math.abs(change) < 1 ? "good" : change > 1 ? "warning" : "good",
-        detail: Math.abs(change) < 1
-          ? "Body fat is holding steady — solid maintenance."
-          : change > 1
-            ? "Body fat rising. Review your caloric balance."
-            : "Dropping body fat — make sure muscle mass isn't declining with it.",
-        action: Math.abs(change) < 1
-          ? undefined
-          : change > 1
-            ? "Track calories for 1 week to find your actual intake. Cut sugary drinks and processed snacks first."
-            : "Keep protein high (2g/kg/day). If strength drops in the gym, slow the cut.",
-      });
-      break;
+      if (current >= 6 && current <= 17) return `${current.toFixed(1)}% is within the athletic range (6-17%). Maintain current diet and training balance.`;
+      if (current < 6) return "Below 6% — increase healthy fats to 25-30% of calories and reduce training volume temporarily.";
+      return "Above 17% — create a mild deficit (~300 kcal). Prioritize protein, add 2-3 zone-2 cardio sessions/week.";
     }
     case "muscleMass": {
-      const gaining = change > 0;
-      const ratio = ((latest.muscleMass / latest.weight) * 100).toFixed(1);
-      insights.push({
-        label: "Period Change",
-        value: `${change > 0 ? "+" : ""}${fmt(change)} kg`,
-        status: gaining ? "good" : change < -0.5 ? "warning" : "neutral",
-        detail: gaining
-          ? "Muscle mass increasing — training stimulus and recovery are working."
-          : change < -0.5
-            ? "Losing muscle mass. This impacts your metabolism and athletic output."
-            : "Muscle mass plateau. Growth requires progressive overload.",
-        action: gaining
-          ? undefined
-          : change < -0.5
-            ? "Increase protein to 2g/kg/day. Prioritize compound lifts (squat, deadlift, press). Sleep 7-9 hrs."
-            : "Add weight or reps each week. Eat at maintenance or slight surplus (+200 kcal on training days).",
-      });
-      insights.push({
-        label: "Muscle-to-Weight",
-        value: `${ratio}%`,
-        status: (latest.muscleMass / latest.weight) > 0.75 ? "good" : "neutral",
-        detail: (latest.muscleMass / latest.weight) > 0.75
-          ? "Excellent muscle-to-weight ratio for an athlete."
-          : "Room to improve through body recomposition.",
-        action: (latest.muscleMass / latest.weight) > 0.75
-          ? undefined
-          : "Eat at maintenance calories with high protein. Train 4x/week with progressive overload. This builds muscle while losing fat.",
-      });
-      break;
+      if (change > 0) return "Muscle mass increasing — training stimulus and recovery are working. Keep it up.";
+      if (change < -0.5) return "Losing muscle. Increase protein to 2g/kg/day, prioritize compound lifts, and sleep 7-9 hours.";
+      return "Muscle mass plateau. Add weight or reps each week. Eat at slight surplus (+200 kcal on training days).";
     }
     case "skeletalMuscleMass": {
       const smRatio = (latest.skeletalMuscleMass / latest.weight) * 100;
-      insights.push({
-        label: "SMM Ratio",
-        value: `${smRatio.toFixed(1)}% of body weight`,
-        status: smRatio > 40 ? "good" : smRatio > 35 ? "neutral" : "warning",
-        detail: smRatio > 40
-          ? "Above 40% — strong athletic composition."
-          : "Below 40%. Skeletal muscle directly drives athletic performance.",
-        action: smRatio > 40
-          ? undefined
-          : "Focus on compound movements 3-4x/week. Eat 1.8-2.2g protein/kg/day. Add creatine monohydrate (5g/day).",
-      });
-      insights.push({
-        label: "Trend",
-        value: `${change > 0 ? "+" : ""}${fmt(change)} kg`,
-        status: change >= 0 ? "good" : "warning",
-        detail: change >= 0
-          ? "Skeletal muscle maintained or growing — training is effective."
-          : "Declining skeletal muscle affects strength, speed, and injury resilience.",
-        action: change >= 0
-          ? undefined
-          : "Prioritize resistance training over cardio. Ensure you're not in too steep a caloric deficit. Add a deload week every 4-6 weeks.",
-      });
-      break;
+      if (smRatio > 40) return "Above 40% skeletal muscle ratio — strong athletic composition. Maintain current program.";
+      return "Below 40%. Focus on compound movements 3-4x/week with progressive overload. Eat 1.8-2.2g protein/kg/day.";
     }
     case "bmr": {
-      const tdeeMin = Math.round(latest.bmr * 1.6);
-      const tdeeMax = Math.round(latest.bmr * 1.9);
-      insights.push({
-        label: "Daily Baseline",
-        value: `${latest.bmr} kcal`,
-        status: "neutral",
-        detail: `You burn ~${latest.bmr} kcal at rest. Your estimated TDEE with athletic activity: ${tdeeMin}–${tdeeMax} kcal/day.`,
-        action: `To maintain weight: eat ~${Math.round((tdeeMin + tdeeMax) / 2)} kcal/day. To cut: subtract 300. To bulk: add 200-300 on training days.`,
-      });
-      insights.push({
-        label: "Period Change",
-        value: `${change > 0 ? "+" : ""}${change.toFixed(0)} kcal`,
-        status: change >= 0 ? "good" : "warning",
-        detail: change >= 0
-          ? "BMR stable or rising — lean mass is maintained."
-          : "BMR declining signals potential muscle loss.",
-        action: change >= 0
-          ? undefined
-          : "Increase resistance training frequency. Eat more protein. Avoid prolonged caloric deficits (>12 weeks without a diet break).",
-      });
-      break;
+      const tdeeAvg = Math.round(latest.bmr * 1.75);
+      if (change >= 0) return `BMR stable. Your estimated TDEE is ~${tdeeAvg} kcal/day. To cut: subtract 300. To bulk: add 200-300 on training days.`;
+      return "BMR declining — signals muscle loss. Increase resistance training and protein. Take a diet break if cutting >12 weeks.";
     }
     case "visceralFat": {
-      const level = current;
-      insights.push({
-        label: "Health Level",
-        value: level <= 9 ? "Healthy" : level <= 14 ? "Elevated" : "High",
-        status: level <= 9 ? "good" : "warning",
-        detail: level <= 9
-          ? `Level ${level} is healthy (1-9). Low visceral fat = low metabolic disease risk.`
-          : `Level ${level} is elevated. Visceral fat is the most dangerous fat type — linked to diabetes, heart disease, and inflammation.`,
-        action: level <= 9
-          ? undefined
-          : "Add 30 min zone-2 cardio 3-4x/week. Cut refined carbs and alcohol. Manage stress (cortisol drives visceral fat storage). Prioritize 7-9 hrs sleep.",
-      });
-      insights.push({
-        label: "Trend",
-        value: change === 0 ? "Stable" : `${change > 0 ? "+" : ""}${change.toFixed(0)}`,
-        status: change <= 0 ? "good" : "warning",
-        detail: change <= 0
-          ? "Visceral fat stable or decreasing — keep it up."
-          : "Rising visceral fat despite being active.",
-        action: change <= 0
-          ? undefined
-          : "Check stress levels and sleep quality. Reduce alcohol. Add more fiber-rich foods (vegetables, legumes). Consistent LISS cardio is more effective than HIIT for visceral fat.",
-      });
-      break;
+      if (current <= 9) return `Level ${current} is in the healthy range (1-9). Low visceral fat = low metabolic disease risk.`;
+      return "Elevated visceral fat. Add 30 min zone-2 cardio 3-4x/week. Cut refined carbs, manage stress, and prioritize sleep.";
     }
     case "water": {
-      const wellHydrated = current >= 55;
-      insights.push({
-        label: "Hydration",
-        value: wellHydrated ? "Well hydrated" : "Low",
-        status: wellHydrated ? "good" : "warning",
-        detail: wellHydrated
-          ? `${fmt(current)}% body water — good for athletic performance.`
-          : `${fmt(current)}% is low. Even 2% dehydration drops strength by ~10% and endurance by ~20%.`,
-        action: wellHydrated
-          ? undefined
-          : "Drink 35-40ml per kg of body weight daily. Add 500ml per hour of training. Include electrolytes (sodium, potassium, magnesium) during intense sessions.",
-      });
-      insights.push({
-        label: "Stability",
-        value: `${fmt(stdDev)}% variance`,
-        status: stdDev < 1 ? "good" : "warning",
-        detail: stdDev < 1
-          ? "Consistent hydration — solid fluid intake habits."
-          : "Fluctuating hydration affects performance and recovery unpredictably.",
-        action: stdDev < 1
-          ? undefined
-          : "Set a daily water target and track it. Drink consistently throughout the day, not in large bursts. Reduce caffeine and alcohol which are diuretics.",
-      });
-      break;
+      if (current >= 55) return `${current.toFixed(1)}% body water — well hydrated for athletic performance. Stay consistent.`;
+      return `${current.toFixed(1)}% is low. Drink 35-40ml per kg body weight daily. Add 500ml per hour of training with electrolytes.`;
     }
+    default:
+      return null;
   }
-
-  return insights;
 }
 
 export function HealthDashboard() {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("weight");
-  const [timeRange, setTimeRange] = useState(0); // 0 = all
+  const [timeRange, setTimeRange] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
 
   const filteredData = useMemo(() => {
@@ -561,10 +501,12 @@ export function HealthDashboard() {
     metric.decimals === 0 ? change.toFixed(0) : change.toFixed(metric.decimals);
   const changePercent = ((change / firstValue) * 100).toFixed(1);
 
-  const insights = useMemo(
-    () => getInsights(healthData, metric, filteredData),
+  const recommendation = useMemo(
+    () => getRecommendation(healthData, metric, filteredData),
     [metric, filteredData]
   );
+
+  const topProblems = useMemo(() => getTopProblems(healthData), []);
 
   return (
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100 }}>
@@ -598,7 +540,7 @@ export function HealthDashboard() {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
           gap: "0.5rem",
-          marginBottom: "1.5rem",
+          marginBottom: "0.75rem",
           opacity: 0,
           animation: "rise 0.6s ease-out 0.05s forwards",
         }}
@@ -669,6 +611,30 @@ export function HealthDashboard() {
         })}
       </div>
 
+      {/* Single recommendation for selected metric */}
+      {recommendation && (
+        <div
+          style={{
+            padding: "0.6rem 1rem",
+            background: metric.color + "10",
+            border: `1px solid ${metric.color}30`,
+            borderRadius: 10,
+            marginBottom: "1.5rem",
+            fontSize: "0.82rem",
+            lineHeight: 1.5,
+            color: "var(--muted)",
+            opacity: 0,
+            animation: "rise 0.6s ease-out 0.07s forwards",
+          }}
+        >
+          <span style={{ color: metric.color, fontWeight: 600, fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>
+            {metric.label}
+          </span>
+          {" — "}
+          {recommendation}
+        </div>
+      )}
+
       {/* Chart area */}
       <div
         style={{
@@ -709,7 +675,7 @@ export function HealthDashboard() {
                 style={{
                   fontSize: "0.8rem",
                   fontWeight: 500,
-                  color: change > 0 ? "#f87171" : change < 0 ? "#4ade80" : "var(--muted)",
+                  color: metric.color,
                 }}
               >
                 {change > 0 ? "+" : ""}
@@ -767,102 +733,74 @@ export function HealthDashboard() {
             Not enough data for this time range.
           </div>
         )}
-
       </div>
 
-      {/* Insights */}
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: "0.75rem",
-          opacity: 0,
-          animation: "rise 0.6s ease-out 0.15s forwards",
-        }}
-      >
-        {insights.map((insight) => (
+      {/* Top 3 Problems — ordered by importance (most important on the right) */}
+      {topProblems.length > 0 && (
+        <div
+          style={{
+            opacity: 0,
+            animation: "rise 0.6s ease-out 0.15s forwards",
+          }}
+        >
+          <div style={{ fontSize: "0.75rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500, marginBottom: "0.5rem" }}>
+            Top priorities
+          </div>
           <div
-            key={insight.label}
             style={{
-              background: "var(--bio-bg)",
-              border: "1px solid var(--bio-border)",
-              borderRadius: 12,
-              padding: "1rem 1.25rem",
-              borderLeft: `3px solid ${
-                insight.status === "good"
-                  ? "#4ade80"
-                  : insight.status === "warning"
-                    ? "#fbbf24"
-                    : "var(--pill-border)"
-              }`,
+              display: "grid",
+              gridTemplateColumns: topProblems.length === 1 ? "1fr" : topProblems.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr",
+              gap: "0.75rem",
             }}
           >
-            <div
-              style={{
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                marginBottom: "0.4rem",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: "0.75rem",
-                  textTransform: "uppercase",
-                  letterSpacing: "0.04em",
-                  color: "var(--muted)",
-                  fontWeight: 500,
-                }}
-              >
-                {insight.label}
-              </span>
-              <span
-                style={{
-                  fontSize: "0.85rem",
-                  fontWeight: 600,
-                  color:
-                    insight.status === "good"
-                      ? "#4ade80"
-                      : insight.status === "warning"
-                        ? "#fbbf24"
-                        : "var(--fg)",
-                }}
-              >
-                {insight.value}
-              </span>
-            </div>
-            <p
-              style={{
-                fontSize: "0.8rem",
-                color: "var(--muted)",
-                lineHeight: 1.5,
-                margin: 0,
-              }}
-            >
-              {insight.detail}
-            </p>
-            {insight.action && (
+            {[...topProblems].reverse().map((problem, i) => (
               <div
+                key={problem.metricLabel}
                 style={{
-                  marginTop: "0.5rem",
-                  padding: "0.5rem 0.65rem",
-                  background: insight.status === "warning" ? "#fbbf2410" : "#4ade8010",
-                  borderRadius: 8,
-                  fontSize: "0.78rem",
-                  lineHeight: 1.5,
-                  color: "var(--fg)",
+                  background: "var(--bio-bg)",
+                  border: "1px solid var(--bio-border)",
+                  borderRadius: 12,
+                  padding: "1rem 1.25rem",
+                  borderLeft: `3px solid ${problem.metricColor}`,
                 }}
               >
-                <span style={{ fontWeight: 600, fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                  {insight.status === "warning" ? "Action needed" : "Recommendation"}
-                </span>
-                <br />
-                <span style={{ color: "var(--muted)" }}>{insight.action}</span>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "0.4rem",
+                    marginBottom: "0.35rem",
+                  }}
+                >
+                  <span
+                    style={{
+                      fontSize: "0.65rem",
+                      fontWeight: 600,
+                      color: "#fbbf24",
+                      background: "#fbbf2415",
+                      padding: "0.15rem 0.4rem",
+                      borderRadius: 4,
+                      textTransform: "uppercase",
+                      letterSpacing: "0.04em",
+                    }}
+                  >
+                    #{topProblems.length - i}
+                  </span>
+                  <span style={{ fontSize: "0.7rem", color: problem.metricColor, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                    {problem.metricLabel}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--fg)", marginBottom: "0.35rem" }}>
+                  {problem.title}
+                </div>
+                <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
+                  {problem.action}
+                </p>
               </div>
-            )}
+            ))}
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
