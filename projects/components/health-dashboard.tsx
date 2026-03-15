@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { healthData, HealthRecord } from "@/data/health-data";
+import { healthData, HealthRecord, userProfile, getUserAge } from "@/data/health-data";
+import { evaluateProblems, Problem } from "@/data/health-recommendations";
 
 type MetricKey = keyof Omit<HealthRecord, "time">;
 
@@ -231,135 +232,9 @@ function Chart({
   );
 }
 
-interface Problem {
-  metricLabel: string;
-  metricColor: string;
-  severity: number;
-  title: string;
-  action: string;
-}
-
-function getTopProblems(data: HealthRecord[]): Problem[] {
-  const latest = data[data.length - 1];
-  const first = data[0];
-  const values = (key: MetricKey) => data.map((d) => d[key] as number);
-  const stdDev = (key: MetricKey) => {
-    const vals = values(key);
-    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
-    return Math.sqrt(vals.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / vals.length);
-  };
-
-  const problems: Problem[] = [];
-
-  // Weight stability
-  const weightStd = stdDev("weight");
-  if (weightStd > 2) {
-    problems.push({
-      metricLabel: "Weight",
-      metricColor: "#60a5fa",
-      severity: weightStd,
-      title: `High weight variance (${weightStd.toFixed(1)} kg)`,
-      action: "Weigh yourself at the same time daily (morning, fasted). Track weekly averages. Log meals on high/low weeks — sodium and carb-heavy days cause the biggest swings.",
-    });
-  }
-
-  // Body fat
-  const bf = latest.bodyFat;
-  if (bf > 17) {
-    problems.push({
-      metricLabel: "Body Fat",
-      metricColor: "#f97316",
-      severity: (bf - 17) * 2,
-      title: `Body fat above athletic range (${bf}%)`,
-      action: "Create a mild deficit (~300 kcal/day). Prioritize protein (2g/kg/day). Add 2-3 zone-2 cardio sessions/week. Cut sugary drinks and processed snacks first.",
-    });
-  } else if (bf < 6) {
-    problems.push({
-      metricLabel: "Body Fat",
-      metricColor: "#f97316",
-      severity: (6 - bf) * 3,
-      title: `Body fat dangerously low (${bf}%)`,
-      action: "Increase healthy fats (avocado, nuts, olive oil) to 25-30% of calories. Reduce training volume temporarily. Monitor hormone and energy levels.",
-    });
-  }
-
-  // Muscle mass decline
-  const muscleChange = latest.muscleMass - first.muscleMass;
-  if (muscleChange < -0.5) {
-    problems.push({
-      metricLabel: "Muscle Mass",
-      metricColor: "#34d399",
-      severity: Math.abs(muscleChange) * 2,
-      title: `Losing muscle mass (${muscleChange.toFixed(1)} kg)`,
-      action: "Increase protein to 2g/kg/day. Prioritize compound lifts (squat, deadlift, press) 3-4x/week. Sleep 7-9 hours. Avoid caloric deficits steeper than 300 kcal.",
-    });
-  }
-
-  // Skeletal muscle ratio
-  const smRatio = (latest.skeletalMuscleMass / latest.weight) * 100;
-  if (smRatio < 40) {
-    problems.push({
-      metricLabel: "Skeletal Muscle",
-      metricColor: "#2dd4bf",
-      severity: (40 - smRatio) * 0.8,
-      title: `Skeletal muscle ratio below 40% (${smRatio.toFixed(1)}%)`,
-      action: "Focus on compound movements 3-4x/week with progressive overload. Eat 1.8-2.2g protein/kg/day. Consider creatine monohydrate (5g/day).",
-    });
-  }
-
-  // BMR decline
-  const bmrChange = latest.bmr - first.bmr;
-  if (bmrChange < -20) {
-    problems.push({
-      metricLabel: "BMR",
-      metricColor: "#fb923c",
-      severity: Math.abs(bmrChange) * 0.1,
-      title: `BMR declining (${bmrChange} kcal)`,
-      action: "Increase resistance training frequency. Eat more protein. Take a diet break if you've been cutting for >12 weeks. BMR drops signal muscle loss.",
-    });
-  }
-
-  // Visceral fat
-  const vf = latest.visceralFat;
-  if (vf > 9) {
-    problems.push({
-      metricLabel: "Visceral Fat",
-      metricColor: "#fb7185",
-      severity: (vf - 9) * 3,
-      title: `Visceral fat elevated (level ${vf})`,
-      action: "Add 30 min zone-2 cardio 3-4x/week. Cut refined carbs and alcohol. Manage stress and sleep (cortisol drives visceral fat). Add fiber-rich foods.",
-    });
-  }
-
-  // Hydration
-  const water = latest.water;
-  if (water < 55) {
-    problems.push({
-      metricLabel: "Water",
-      metricColor: "#38bdf8",
-      severity: (55 - water) * 1.5,
-      title: `Low hydration (${water}%)`,
-      action: "Drink 35-40ml per kg of body weight daily. Add 500ml per hour of training. Include electrolytes during intense sessions. Reduce caffeine and alcohol.",
-    });
-  }
-
-  // Sort by severity descending, take top 3
-  problems.sort((a, b) => b.severity - a.severity);
-  return problems.slice(0, 3);
-}
-
 function getTop3ProblemKeys(data: HealthRecord[]): Set<MetricKey> {
-  const problems = getTopProblems(data);
-  const keyMap: Record<string, MetricKey> = {
-    "Weight": "weight",
-    "Body Fat": "bodyFat",
-    "Muscle Mass": "muscleMass",
-    "Skeletal Muscle": "skeletalMuscleMass",
-    "BMR": "bmr",
-    "Visceral Fat": "visceralFat",
-    "Water": "water",
-  };
-  return new Set(problems.map((p) => keyMap[p.metricLabel]).filter(Boolean));
+  const problems = evaluateProblems(data, userProfile, 3);
+  return new Set(problems.map((p) => p.metricKey));
 }
 
 const metricExplanations: Record<MetricKey, string> = {
@@ -404,17 +279,9 @@ export function HealthDashboard() {
 
   const top3Keys = useMemo(() => getTop3ProblemKeys(healthData), []);
   const problemsByKey = useMemo(() => {
-    const problems = getTopProblems(healthData);
-    const keyMap: Record<string, MetricKey> = {
-      "Weight": "weight", "Body Fat": "bodyFat", "Muscle Mass": "muscleMass",
-      "Skeletal Muscle": "skeletalMuscleMass", "BMR": "bmr",
-      "Visceral Fat": "visceralFat", "Water": "water",
-    };
+    const problems = evaluateProblems(healthData, userProfile, 3);
     const map = new Map<MetricKey, Problem>();
-    for (const p of problems) {
-      const k = keyMap[p.metricLabel];
-      if (k) map.set(k, p);
-    }
+    for (const p of problems) map.set(p.metricKey, p);
     return map;
   }, []);
 
@@ -439,8 +306,9 @@ export function HealthDashboard() {
           Health Dashboard
         </h1>
         <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-          Tracking from {formatDateLong(oldest.time)} to{" "}
-          {formatDateLong(latest.time)} &middot; {healthData.length} measurements
+          {getUserAge()} y/o &middot; {userProfile.heightCm} cm &middot;{" "}
+          {formatDateLong(oldest.time)} to {formatDateLong(latest.time)} &middot;{" "}
+          {healthData.length} measurements
         </p>
       </div>
 
