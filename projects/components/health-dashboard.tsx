@@ -44,50 +44,6 @@ function formatDateLong(d: string) {
   });
 }
 
-function MiniChart({
-  data,
-  metricKey,
-  color,
-}: {
-  data: HealthRecord[];
-  metricKey: MetricKey;
-  color: string;
-}) {
-  const width = 200;
-  const height = 48;
-  const padding = 4;
-
-  const values = data.map((d) => d[metricKey] as number);
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  const range = max - min || 1;
-
-  const points = values
-    .map((v, i) => {
-      const x = padding + (i / (values.length - 1)) * (width - padding * 2);
-      const y =
-        height - padding - ((v - min) / range) * (height - padding * 2);
-      return `${x},${y}`;
-    })
-    .join(" ");
-
-  return (
-    <svg
-      viewBox={`0 0 ${width} ${height}`}
-      style={{ width: "100%", height: 48 }}
-    >
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function Chart({
   data,
   metric,
@@ -392,91 +348,36 @@ function getTopProblems(data: HealthRecord[]): Problem[] {
   return problems.slice(0, 3);
 }
 
-function getTabStatus(data: HealthRecord[], metricKey: MetricKey): "good" | "warning" | "neutral" {
-  const latest = data[data.length - 1];
-  const values = data.map((d) => d[metricKey] as number);
-  const current = latest[metricKey] as number;
-  const first = data[0]?.[metricKey] as number;
-  const change = current - first;
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-  const stdDev = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length);
-
-  switch (metricKey) {
-    case "weight":
-      return stdDev > 2 ? "warning" : "good";
-    case "bodyFat":
-      return current > 17 ? "warning" : current < 6 ? "warning" : "good";
-    case "muscleMass":
-      return change < -0.5 ? "warning" : change > 0 ? "good" : "neutral";
-    case "skeletalMuscleMass": {
-      const ratio = (latest.skeletalMuscleMass / latest.weight) * 100;
-      return ratio > 40 ? "good" : ratio > 35 ? "neutral" : "warning";
-    }
-    case "bmr":
-      return change < -20 ? "warning" : change >= 0 ? "good" : "neutral";
-    case "visceralFat":
-      return current > 9 ? "warning" : "good";
-    case "water":
-      return current < 55 ? "warning" : "good";
-    default:
-      return "neutral";
-  }
+function getTop3ProblemKeys(data: HealthRecord[]): Set<MetricKey> {
+  const problems = getTopProblems(data);
+  const keyMap: Record<string, MetricKey> = {
+    "Weight": "weight",
+    "Body Fat": "bodyFat",
+    "Muscle Mass": "muscleMass",
+    "Skeletal Muscle": "skeletalMuscleMass",
+    "BMR": "bmr",
+    "Visceral Fat": "visceralFat",
+    "Water": "water",
+  };
+  return new Set(problems.map((p) => keyMap[p.metricLabel]).filter(Boolean));
 }
 
-function getRecommendation(data: HealthRecord[], metric: MetricConfig, filteredData: HealthRecord[]): string | null {
-  const latest = data[data.length - 1];
-  const values = filteredData.map((d) => d[metric.key] as number);
-  const current = latest[metric.key] as number;
-  const first = filteredData[0]?.[metric.key] as number;
-  const change = current - first;
-  const avg = values.reduce((a, b) => a + b, 0) / values.length;
-  const stdDev = Math.sqrt(values.reduce((sum, v) => sum + Math.pow(v - avg, 2), 0) / values.length);
-
-  const recentN = Math.min(5, values.length);
-  const recentValues = values.slice(-recentN);
-  const trendSlope = recentValues.length > 1
-    ? (recentValues[recentValues.length - 1] - recentValues[0]) / (recentValues.length - 1)
-    : 0;
-
-  switch (metric.key) {
-    case "weight": {
-      const trending = trendSlope > 0.1 ? "up" : trendSlope < -0.1 ? "down" : "stable";
-      if (trending === "stable") return "Weight stable — keep current nutrition and training consistent.";
-      if (trending === "up") return "Weight trending up. Compare with body fat — if fat% is rising, reduce ~200 kcal/day or add 2 LISS cardio sessions/week.";
-      return "Weight trending down. Ensure protein is at 1.8-2.2g/kg/day and you're not losing muscle mass.";
-    }
-    case "bodyFat": {
-      if (current >= 6 && current <= 17) return `${current.toFixed(1)}% is within the athletic range (6-17%). Maintain current diet and training balance.`;
-      if (current < 6) return "Below 6% — increase healthy fats to 25-30% of calories and reduce training volume temporarily.";
-      return "Above 17% — create a mild deficit (~300 kcal). Prioritize protein, add 2-3 zone-2 cardio sessions/week.";
-    }
-    case "muscleMass": {
-      if (change > 0) return "Muscle mass increasing — training stimulus and recovery are working. Keep it up.";
-      if (change < -0.5) return "Losing muscle. Increase protein to 2g/kg/day, prioritize compound lifts, and sleep 7-9 hours.";
-      return "Muscle mass plateau. Add weight or reps each week. Eat at slight surplus (+200 kcal on training days).";
-    }
-    case "skeletalMuscleMass": {
-      const smRatio = (latest.skeletalMuscleMass / latest.weight) * 100;
-      if (smRatio > 40) return "Above 40% skeletal muscle ratio — strong athletic composition. Maintain current program.";
-      return "Below 40%. Focus on compound movements 3-4x/week with progressive overload. Eat 1.8-2.2g protein/kg/day.";
-    }
-    case "bmr": {
-      const tdeeAvg = Math.round(latest.bmr * 1.75);
-      if (change >= 0) return `BMR stable. Your estimated TDEE is ~${tdeeAvg} kcal/day. To cut: subtract 300. To bulk: add 200-300 on training days.`;
-      return "BMR declining — signals muscle loss. Increase resistance training and protein. Take a diet break if cutting >12 weeks.";
-    }
-    case "visceralFat": {
-      if (current <= 9) return `Level ${current} is in the healthy range (1-9). Low visceral fat = low metabolic disease risk.`;
-      return "Elevated visceral fat. Add 30 min zone-2 cardio 3-4x/week. Cut refined carbs, manage stress, and prioritize sleep.";
-    }
-    case "water": {
-      if (current >= 55) return `${current.toFixed(1)}% body water — well hydrated for athletic performance. Stay consistent.`;
-      return `${current.toFixed(1)}% is low. Drink 35-40ml per kg body weight daily. Add 500ml per hour of training with electrolytes.`;
-    }
-    default:
-      return null;
-  }
-}
+const metricExplanations: Record<MetricKey, string> = {
+  weight: "Total body weight including muscle, fat, bone, and water. Best tracked as a weekly average rather than daily.",
+  bodyFat: "Percentage of your body composed of fat tissue. Athletic range for males is 6-17%.",
+  muscleMass: "Total mass of skeletal and smooth muscle in your body. Key driver of metabolism and athletic performance.",
+  skeletalMuscleMass: "The muscle attached to your skeleton that you actively control. Directly drives strength, speed, and power output.",
+  bmr: "Basal Metabolic Rate — calories your body burns at complete rest. Higher BMR means more lean mass.",
+  visceralFat: "Fat stored around internal organs. Levels 1-9 are healthy. The most dangerous type of fat for long-term health.",
+  water: "Percentage of your body composed of water. Above 55% indicates good hydration for athletic performance.",
+  bmi: "",
+  bodyFatMass: "",
+  leanBodyMass: "",
+  boneMass: "",
+  protein: "",
+  subcutaneousFat: "",
+  bodyAge: "",
+};
 
 export function HealthDashboard() {
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("weight");
@@ -501,12 +402,7 @@ export function HealthDashboard() {
     metric.decimals === 0 ? change.toFixed(0) : change.toFixed(metric.decimals);
   const changePercent = ((change / firstValue) * 100).toFixed(1);
 
-  const recommendation = useMemo(
-    () => getRecommendation(healthData, metric, filteredData),
-    [metric, filteredData]
-  );
-
-  const topProblems = useMemo(() => getTopProblems(healthData), []);
+  const top3Keys = useMemo(() => getTop3ProblemKeys(healthData), []);
 
   return (
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100 }}>
@@ -548,8 +444,7 @@ export function HealthDashboard() {
         {metrics.map((m) => {
           const isActive = m.key === selectedMetric;
           const val = latest[m.key] as number;
-          const tabStatus = getTabStatus(healthData, m.key);
-          const statusColor = tabStatus === "good" ? "#4ade80" : tabStatus === "warning" ? "#fbbf24" : "var(--pill-border)";
+          const hasWarning = top3Keys.has(m.key);
           return (
             <button
               key={m.key}
@@ -565,23 +460,25 @@ export function HealthDashboard() {
                 transition: "all 0.15s",
                 display: "flex",
                 flexDirection: "column",
-                gap: "0.2rem",
+                gap: "0.15rem",
                 borderLeft: isActive ? `3px solid ${m.color}` : `1px solid ${isActive ? m.color + "60" : "var(--bio-border)"}`,
                 position: "relative",
               }}
             >
-              <div
-                style={{
-                  position: "absolute",
-                  top: 6,
-                  right: 6,
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: statusColor,
-                  boxShadow: tabStatus === "warning" ? "0 0 6px #fbbf2480" : undefined,
-                }}
-              />
+              {hasWarning && (
+                <div
+                  style={{
+                    position: "absolute",
+                    top: 6,
+                    right: 6,
+                    width: 8,
+                    height: 8,
+                    borderRadius: "50%",
+                    background: "#ef4444",
+                    boxShadow: "0 0 6px #ef444480",
+                  }}
+                />
+              )}
               <span
                 style={{
                   fontSize: "0.7rem",
@@ -605,35 +502,25 @@ export function HealthDashboard() {
                   {m.unit}
                 </span>
               </span>
-              <MiniChart data={healthData} metricKey={m.key} color={isActive ? m.color : m.color + "80"} />
             </button>
           );
         })}
       </div>
 
-      {/* Single recommendation for selected metric */}
-      {recommendation && (
-        <div
-          style={{
-            padding: "0.6rem 1rem",
-            background: metric.color + "10",
-            border: `1px solid ${metric.color}30`,
-            borderRadius: 10,
-            marginBottom: "1.5rem",
-            fontSize: "0.82rem",
-            lineHeight: 1.5,
-            color: "var(--muted)",
-            opacity: 0,
-            animation: "rise 0.6s ease-out 0.07s forwards",
-          }}
-        >
-          <span style={{ color: metric.color, fontWeight: 600, fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.04em" }}>
-            {metric.label}
-          </span>
-          {" — "}
-          {recommendation}
-        </div>
-      )}
+      {/* Metric explanation */}
+      <div
+        style={{
+          padding: "0.5rem 1rem",
+          fontSize: "0.82rem",
+          lineHeight: 1.5,
+          color: "var(--muted)",
+          marginBottom: "1rem",
+          opacity: 0,
+          animation: "rise 0.6s ease-out 0.07s forwards",
+        }}
+      >
+        {metricExplanations[selectedMetric]}
+      </div>
 
       {/* Chart area */}
       <div
@@ -735,72 +622,6 @@ export function HealthDashboard() {
         )}
       </div>
 
-      {/* Top 3 Problems — ordered by importance (most important on the right) */}
-      {topProblems.length > 0 && (
-        <div
-          style={{
-            opacity: 0,
-            animation: "rise 0.6s ease-out 0.15s forwards",
-          }}
-        >
-          <div style={{ fontSize: "0.75rem", color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em", fontWeight: 500, marginBottom: "0.5rem" }}>
-            Top priorities
-          </div>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: topProblems.length === 1 ? "1fr" : topProblems.length === 2 ? "1fr 1fr" : "1fr 1fr 1fr",
-              gap: "0.75rem",
-            }}
-          >
-            {[...topProblems].reverse().map((problem, i) => (
-              <div
-                key={problem.metricLabel}
-                style={{
-                  background: "var(--bio-bg)",
-                  border: "1px solid var(--bio-border)",
-                  borderRadius: 12,
-                  padding: "1rem 1.25rem",
-                  borderLeft: `3px solid ${problem.metricColor}`,
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "0.4rem",
-                    marginBottom: "0.35rem",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontSize: "0.65rem",
-                      fontWeight: 600,
-                      color: "#fbbf24",
-                      background: "#fbbf2415",
-                      padding: "0.15rem 0.4rem",
-                      borderRadius: 4,
-                      textTransform: "uppercase",
-                      letterSpacing: "0.04em",
-                    }}
-                  >
-                    #{topProblems.length - i}
-                  </span>
-                  <span style={{ fontSize: "0.7rem", color: problem.metricColor, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                    {problem.metricLabel}
-                  </span>
-                </div>
-                <div style={{ fontSize: "0.85rem", fontWeight: 500, color: "var(--fg)", marginBottom: "0.35rem" }}>
-                  {problem.title}
-                </div>
-                <p style={{ fontSize: "0.78rem", color: "var(--muted)", lineHeight: 1.5, margin: 0 }}>
-                  {problem.action}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
