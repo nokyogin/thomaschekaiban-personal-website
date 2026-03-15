@@ -15,19 +15,12 @@ interface MetricConfig {
 
 const metrics: MetricConfig[] = [
   { key: "weight", label: "Weight", unit: "kg", color: "#60a5fa", decimals: 1 },
-  { key: "bmi", label: "BMI", unit: "", color: "#a78bfa", decimals: 1 },
   { key: "bodyFat", label: "Body Fat", unit: "%", color: "#f97316", decimals: 1 },
   { key: "muscleMass", label: "Muscle Mass", unit: "kg", color: "#34d399", decimals: 1 },
-  { key: "water", label: "Water", unit: "%", color: "#38bdf8", decimals: 1 },
-  { key: "bmr", label: "BMR", unit: "kcal", color: "#fb923c", decimals: 0 },
-  { key: "bodyFatMass", label: "Fat Mass", unit: "kg", color: "#f87171", decimals: 1 },
-  { key: "leanBodyMass", label: "Lean Mass", unit: "kg", color: "#4ade80", decimals: 1 },
-  { key: "boneMass", label: "Bone Mass", unit: "kg", color: "#e2e8f0", decimals: 1 },
-  { key: "visceralFat", label: "Visceral Fat", unit: "", color: "#fb7185", decimals: 0 },
-  { key: "protein", label: "Protein", unit: "%", color: "#c084fc", decimals: 1 },
   { key: "skeletalMuscleMass", label: "Skeletal Muscle", unit: "kg", color: "#2dd4bf", decimals: 1 },
-  { key: "subcutaneousFat", label: "Subcut. Fat", unit: "%", color: "#fbbf24", decimals: 1 },
-  { key: "bodyAge", label: "Body Age", unit: "yr", color: "#94a3b8", decimals: 0 },
+  { key: "bmr", label: "BMR", unit: "kcal", color: "#fb923c", decimals: 0 },
+  { key: "visceralFat", label: "Visceral Fat", unit: "", color: "#fb7185", decimals: 0 },
+  { key: "water", label: "Water", unit: "%", color: "#38bdf8", decimals: 1 },
 ];
 
 const timeRanges = [
@@ -351,11 +344,11 @@ export function HealthDashboard() {
         }}
       >
         {[
-          { label: "Weight", value: `${latest.weight} kg`, sub: `BMI ${latest.bmi}`, color: "#60a5fa" },
-          { label: "Body Fat", value: `${latest.bodyFat}%`, sub: `${latest.bodyFatMass} kg`, color: "#f97316" },
+          { label: "Weight", value: `${latest.weight} kg`, sub: `Body Fat ${latest.bodyFat}%`, color: "#60a5fa" },
+          { label: "Body Fat", value: `${latest.bodyFat}%`, sub: `Visceral ${latest.visceralFat}`, color: "#f97316" },
           { label: "Muscle Mass", value: `${latest.muscleMass} kg`, sub: `Skeletal ${latest.skeletalMuscleMass} kg`, color: "#34d399" },
-          { label: "Visceral Fat", value: `${latest.visceralFat}`, sub: `Body Age ${latest.bodyAge}`, color: "#fb7185" },
-          { label: "Water", value: `${latest.water}%`, sub: `Protein ${latest.protein}%`, color: "#38bdf8" },
+          { label: "Skeletal Muscle", value: `${latest.skeletalMuscleMass} kg`, sub: `Water ${latest.water}%`, color: "#2dd4bf" },
+          { label: "Visceral Fat", value: `${latest.visceralFat}`, sub: `BMR ${latest.bmr} kcal`, color: "#fb7185" },
           { label: "BMR", value: `${latest.bmr}`, sub: "kcal/day", color: "#fb923c" },
         ].map((card) => (
           <div
@@ -608,7 +601,7 @@ export function HealthDashboard() {
                   borderBottom: "1px solid var(--bio-border)",
                 }}
               >
-                {["Date", "Weight", "BMI", "Body Fat", "Muscle", "Water", "BMR", "V.Fat", "Age"].map(
+                {["Date", "Weight", "Body Fat", "Muscle", "Skel. Muscle", "BMR", "V.Fat", "Water"].map(
                   (h) => (
                     <th
                       key={h}
@@ -638,13 +631,12 @@ export function HealthDashboard() {
                     {formatDateLong(row.time)}
                   </td>
                   <td style={{ padding: "0.5rem 0.75rem" }}>{row.weight}</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.bmi}</td>
                   <td style={{ padding: "0.5rem 0.75rem" }}>{row.bodyFat}%</td>
                   <td style={{ padding: "0.5rem 0.75rem" }}>{row.muscleMass}</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.water}%</td>
+                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.skeletalMuscleMass}</td>
                   <td style={{ padding: "0.5rem 0.75rem" }}>{row.bmr}</td>
                   <td style={{ padding: "0.5rem 0.75rem" }}>{row.visceralFat}</td>
-                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.bodyAge}</td>
+                  <td style={{ padding: "0.5rem 0.75rem" }}>{row.water}%</td>
                 </tr>
               ))}
             </tbody>
