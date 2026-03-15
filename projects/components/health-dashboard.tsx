@@ -232,8 +232,8 @@ function Chart({
   );
 }
 
-function getTop3ProblemKeys(data: HealthRecord[]): Set<MetricKey> {
-  const problems = evaluateProblems(data, userProfile, 3);
+function getAllProblemKeys(data: HealthRecord[]): Set<MetricKey> {
+  const problems = evaluateProblems(data, userProfile);
   return new Set(problems.map((p) => p.metricKey));
 }
 
@@ -277,9 +277,9 @@ export function HealthDashboard() {
     metric.decimals === 0 ? change.toFixed(0) : change.toFixed(metric.decimals);
   const changePercent = ((change / firstValue) * 100).toFixed(1);
 
-  const top3Keys = useMemo(() => getTop3ProblemKeys(healthData), []);
+  const warningKeys = useMemo(() => getAllProblemKeys(healthData), []);
   const problemsByKey = useMemo(() => {
-    const problems = evaluateProblems(healthData, userProfile, 3);
+    const problems = evaluateProblems(healthData, userProfile);
     const map = new Map<MetricKey, Problem>();
     for (const p of problems) map.set(p.metricKey, p);
     return map;
@@ -326,7 +326,7 @@ export function HealthDashboard() {
         {metrics.map((m) => {
           const isActive = m.key === selectedMetric;
           const val = latest[m.key] as number;
-          const hasWarning = top3Keys.has(m.key);
+          const hasWarning = warningKeys.has(m.key);
           return (
             <button
               key={m.key}
