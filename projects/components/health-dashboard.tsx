@@ -403,6 +403,20 @@ export function HealthDashboard() {
   const changePercent = ((change / firstValue) * 100).toFixed(1);
 
   const top3Keys = useMemo(() => getTop3ProblemKeys(healthData), []);
+  const problemsByKey = useMemo(() => {
+    const problems = getTopProblems(healthData);
+    const keyMap: Record<string, MetricKey> = {
+      "Weight": "weight", "Body Fat": "bodyFat", "Muscle Mass": "muscleMass",
+      "Skeletal Muscle": "skeletalMuscleMass", "BMR": "bmr",
+      "Visceral Fat": "visceralFat", "Water": "water",
+    };
+    const map = new Map<MetricKey, Problem>();
+    for (const p of problems) {
+      const k = keyMap[p.metricLabel];
+      if (k) map.set(k, p);
+    }
+    return map;
+  }, []);
 
   return (
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100 }}>
@@ -507,20 +521,38 @@ export function HealthDashboard() {
         })}
       </div>
 
-      {/* Metric explanation */}
-      <div
-        style={{
-          padding: "0.5rem 1rem",
-          fontSize: "0.82rem",
-          lineHeight: 1.5,
-          color: "var(--muted)",
-          marginBottom: "1rem",
-          opacity: 0,
-          animation: "rise 0.6s ease-out 0.07s forwards",
-        }}
-      >
-        {metricExplanations[selectedMetric]}
-      </div>
+      {/* Metric description */}
+      {(() => {
+        const problem = problemsByKey.get(selectedMetric);
+        return (
+          <div
+            style={{
+              padding: "0.6rem 1rem",
+              fontSize: "0.82rem",
+              lineHeight: 1.6,
+              color: "var(--muted)",
+              marginBottom: "1rem",
+              opacity: 0,
+              animation: "rise 0.6s ease-out 0.07s forwards",
+              background: problem ? "#ef444408" : "transparent",
+              border: problem ? "1px solid #ef444420" : "none",
+              borderRadius: 10,
+            }}
+          >
+            {metricExplanations[selectedMetric]}
+            {problem && (
+              <>
+                <div style={{ marginTop: "0.5rem", color: "#ef4444", fontWeight: 600, fontSize: "0.78rem" }}>
+                  {problem.title}
+                </div>
+                <div style={{ marginTop: "0.25rem", color: "var(--fg)", fontSize: "0.8rem" }}>
+                  {problem.action}
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })()}
 
       {/* Chart area */}
       <div
