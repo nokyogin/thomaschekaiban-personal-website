@@ -51,11 +51,13 @@ function WealthChart({
   color,
   hoveredIndex,
   onHover,
+  hidden = false,
 }: {
   points: ChartPoint[];
   color: string;
   hoveredIndex: number | null;
   onHover: (i: number | null) => void;
+  hidden?: boolean;
 }) {
   const width = 800;
   const height = 300;
@@ -101,7 +103,7 @@ function WealthChart({
     Math.round((i / (labelCount - 1)) * (points.length - 1))
   );
 
-  const tooltipText = hoveredIndex !== null ? fmt.format(values[hoveredIndex]) : "";
+  const tooltipText = hoveredIndex !== null ? (hidden ? "••••••" : fmt.format(values[hoveredIndex])) : "";
   const tooltipWidth = tooltipText.length * 7.5 + 16;
 
   return (
@@ -118,7 +120,7 @@ function WealthChart({
       ))}
       {yTickValues.map((v, i) => (
         <text key={i} x={padL - 10} y={getY(v) + 4} textAnchor="end" fill="#666" fontSize="11" fontFamily="Inter, sans-serif">
-          {fmt.format(Math.round(v))}
+          {hidden ? "••••" : fmt.format(Math.round(v))}
         </text>
       ))}
       {labelIndices.map((idx) => (
@@ -256,6 +258,8 @@ export function WealthDashboard() {
   const [editAmount, setEditAmount] = useState("");
   const [editName, setEditName] = useState("");
   const [resetStep, setResetStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
+  const [amountsHidden, setAmountsHidden] = useState(true);
+  const [showUnhideConfirm, setShowUnhideConfirm] = useState(false);
 
   useEffect(() => {
     fetch("/api/wealth", { credentials: "same-origin" })
@@ -443,6 +447,9 @@ export function WealthDashboard() {
     [selectedCategory]
   );
 
+  const maskAmount = (value: number) => amountsHidden ? "••••••" : fmt.format(value);
+  const maskAmountFull = (value: number) => amountsHidden ? "••••••" : fmtFull.format(value);
+
   const currentColor = selectedCategory ? categoryColors[selectedCategory] : "#60a5fa";
   const currentValue = selectedCategory
     ? latestByCategory[selectedCategory] ?? 0
@@ -477,12 +484,54 @@ export function WealthDashboard() {
           <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: 0 }}>
             {hasData ? (
               <>
-                {fmt.format(totalWealth)} total &middot; {categories.length} categories &middot; {entries.length} entries
+                {maskAmount(totalWealth)} total &middot; {categories.length} categories &middot; {entries.length} entries
               </>
             ) : (
               "No data yet"
             )}
           </p>
+          {hasData && (
+            <button
+              onClick={() => {
+                if (amountsHidden) {
+                  setShowUnhideConfirm(true);
+                } else {
+                  setAmountsHidden(true);
+                }
+              }}
+              title={amountsHidden ? "Show amounts" : "Hide amounts"}
+              style={{
+                padding: "0.3rem",
+                borderRadius: 8,
+                border: `1px solid ${amountsHidden ? "var(--bio-border)" : "#60a5fa60"}`,
+                background: amountsHidden ? "transparent" : "#60a5fa20",
+                color: amountsHidden ? "var(--muted)" : "#60a5fa",
+                fontSize: "0.85rem",
+                lineHeight: 1,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 28,
+                height: 28,
+              }}
+            >
+              {amountsHidden ? (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                  <line x1="1" y1="1" x2="23" y2="23" />
+                </svg>
+              ) : (
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              )}
+            </button>
+          )}
           {hasData && (
             <button
               onClick={() => setShowAddForm(!showAddForm)}
@@ -629,7 +678,7 @@ export function WealthDashboard() {
                 color: selectedCategory === null ? "#e8e8e8" : "var(--fg)",
               }}
             >
-              {fmt.format(totalWealth)}
+              {maskAmount(totalWealth)}
             </span>
           </button>
 
@@ -770,13 +819,88 @@ export function WealthDashboard() {
                         color: isActive ? "#e8e8e8" : "var(--fg)",
                       }}
                     >
-                      {fmt.format(latestByCategory[cat] ?? 0)}
+                      {maskAmount(latestByCategory[cat] ?? 0)}
                     </span>
                   </>
                 )}
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Unhide confirmation modal */}
+      {showUnhideConfirm && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "1rem",
+          }}
+          onClick={() => setShowUnhideConfirm(false)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid var(--bio-border)",
+              borderRadius: 14,
+              padding: "1.5rem",
+              maxWidth: 360,
+              width: "100%",
+              opacity: 0,
+              animation: "rise 0.3s ease-out forwards",
+            }}
+          >
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.5rem" }}>
+              Show amounts?
+            </h3>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "1.25rem", lineHeight: 1.5 }}>
+              This will reveal all financial amounts on the dashboard. Make sure no one is looking over your shoulder.
+            </p>
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowUnhideConfirm(false)}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: 8,
+                  border: "1px solid var(--bio-border)",
+                  background: "transparent",
+                  color: "var(--muted)",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  setAmountsHidden(false);
+                  setShowUnhideConfirm(false);
+                }}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: 8,
+                  border: "1px solid #60a5fa60",
+                  background: "#60a5fa20",
+                  color: "#60a5fa",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Show amounts
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -810,19 +934,21 @@ export function WealthDashboard() {
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: "0.5rem" }}>
                 <span style={{ fontSize: "1.75rem", fontWeight: 600 }}>
-                  {fmtFull.format(currentValue)}
+                  {maskAmountFull(currentValue)}
                 </span>
-                <span
-                  style={{
-                    fontSize: "0.8rem",
-                    fontWeight: 500,
-                    color: currentColor,
-                  }}
-                >
-                  {change > 0 ? "+" : ""}
-                  {fmt.format(change)} ({change > 0 ? "+" : ""}
-                  {changePercent}%)
-                </span>
+                {!amountsHidden && (
+                  <span
+                    style={{
+                      fontSize: "0.8rem",
+                      fontWeight: 500,
+                      color: currentColor,
+                    }}
+                  >
+                    {change > 0 ? "+" : ""}
+                    {fmt.format(change)} ({change > 0 ? "+" : ""}
+                    {changePercent}%)
+                  </span>
+                )}
               </div>
             </div>
 
@@ -857,6 +983,7 @@ export function WealthDashboard() {
               color={currentColor}
               hoveredIndex={hoveredIndex}
               onHover={setHoveredIndex}
+              hidden={amountsHidden}
             />
           ) : (
             <div

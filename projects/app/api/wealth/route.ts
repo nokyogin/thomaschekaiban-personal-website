@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import {
   ensureWealthTable,
   getAllWealthEntries,
@@ -7,7 +8,12 @@ import {
   renameWealthCategory,
 } from "@/lib/wealth-db";
 
+const UNAUTHORIZED = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
 export async function GET() {
+  const session = await auth();
+  if (!session?.user) return UNAUTHORIZED;
+
   try {
     await ensureWealthTable();
     const entries = await getAllWealthEntries();
@@ -19,6 +25,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return UNAUTHORIZED;
+
   try {
     const body = await request.json();
     const { category, amount } = body;
@@ -40,6 +49,9 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PATCH(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return UNAUTHORIZED;
+
   try {
     const body = await request.json();
     const { oldCategory, newCategory } = body;
@@ -61,6 +73,9 @@ export async function PATCH(request: NextRequest) {
 }
 
 export async function DELETE() {
+  const session = await auth();
+  if (!session?.user) return UNAUTHORIZED;
+
   try {
     await ensureWealthTable();
     await deleteAllWealthEntries();
