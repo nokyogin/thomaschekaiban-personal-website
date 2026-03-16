@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect } from "react";
-import { healthData as defaultHealthData, HealthRecord, userProfile, getUserAge } from "@/data/health-data";
+import { HealthRecord, userProfile, getUserAge } from "@/data/health-data";
 import { evaluateProblems, Problem } from "@/data/health-recommendations";
 import { CSVUploader } from "./csv-uploader";
 
@@ -261,7 +261,7 @@ const metricExplanations: Record<MetricKey, string> = {
 };
 
 export function HealthDashboard() {
-  const [data, setData] = useState<HealthRecord[]>(defaultHealthData);
+  const [data, setData] = useState<HealthRecord[]>([]);
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("weight");
   const [timeRange, setTimeRange] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
@@ -281,7 +281,7 @@ export function HealthDashboard() {
       .catch(() => setDbLoaded(true));
   }, []);
 
-  const hasCustomData = dbLoaded && data !== defaultHealthData;
+  const hasCustomData = dbLoaded && data.length > 0;
 
   const handleUpload = useCallback(
     (records: HealthRecord[]) => {
@@ -301,7 +301,7 @@ export function HealthDashboard() {
   );
 
   const handleReset = useCallback(() => {
-    setData(defaultHealthData);
+    setData([]);
     setShowUploader(false);
     // Clear DB
     fetch("/api/health", { method: "DELETE" }).catch(console.error);
@@ -315,12 +315,13 @@ export function HealthDashboard() {
   }, [timeRange, data]);
 
   const metric = metrics.find((m) => m.key === selectedMetric)!;
-  const latest = data[data.length - 1];
-  const oldest = data[0];
+  const hasData = data.length > 0;
+  const latest = hasData ? data[data.length - 1] : null;
+  const oldest = hasData ? data[0] : null;
 
   // Use latest non-zero value as current display value
-  const latestNonZeroRecord = [...data].reverse().find((d) => (d[selectedMetric] as number) > 0);
-  const currentValue = latestNonZeroRecord ? (latestNonZeroRecord[selectedMetric] as number) : (latest[selectedMetric] as number);
+  const latestNonZeroRecord = hasData ? [...data].reverse().find((d) => (d[selectedMetric] as number) > 0) : null;
+  const currentValue = latestNonZeroRecord ? (latestNonZeroRecord[selectedMetric] as number) : latest ? (latest[selectedMetric] as number) : 0;
   // Find the first non-zero value for comparison
   const firstNonZero = filteredData.find((d) => (d[selectedMetric] as number) > 0);
   const firstValue = firstNonZero ? (firstNonZero[selectedMetric] as number) : currentValue;
@@ -359,9 +360,11 @@ export function HealthDashboard() {
         </h1>
         <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
           <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: 0 }}>
-            {getUserAge()} y/o &middot; {userProfile.heightCm} cm &middot;{" "}
-            {formatDateLong(oldest.time)} to {formatDateLong(latest.time)} &middot;{" "}
-            {data.length} measurements
+            {getUserAge()} y/o &middot; {userProfile.heightCm} cm
+            {oldest && latest && (
+              <> &middot; {formatDateLong(oldest.time)} to {formatDateLong(latest.time)} &middot; {data.length} measurements</>
+            )}
+            {!hasData && " \u00b7 No data yet"}
           </p>
           <button
             onClick={() => setShowUploader(!showUploader)}
@@ -416,6 +419,7 @@ export function HealthDashboard() {
       )}
 
       {/* KPI Tabs */}
+      {hasData && (
       <div
         style={{
           display: "grid",
@@ -430,7 +434,7 @@ export function HealthDashboard() {
           const isActive = m.key === selectedMetric;
           // Show latest non-zero value for each metric
           const latestNonZero = [...data].reverse().find((d) => (d[m.key] as number) > 0);
-          const val = latestNonZero ? (latestNonZero[m.key] as number) : (latest[m.key] as number);
+          const val = latestNonZero ? (latestNonZero[m.key] as number) : latest ? (latest[m.key] as number) : 0;
           const hasWarning = warningKeys.has(m.key);
           return (
             <button
@@ -493,7 +497,33 @@ export function HealthDashboard() {
           );
         })}
       </div>
+      )}
 
+      {/* Empty state */}
+      {!hasData && dbLoaded && (
+        <div
+          style={{
+            background: "var(--bio-bg)",
+            border: "1px solid var(--bio-border)",
+            borderRadius: 14,
+            padding: "3rem 2rem",
+            textAlign: "center",
+            marginBottom: "1.5rem",
+            opacity: 0,
+            animation: "rise 0.6s ease-out 0.1s forwards",
+          }}
+        >
+          <div style={{ fontSize: "1.1rem", fontWeight: 500, marginBottom: "0.5rem" }}>
+            No health data
+          </div>
+          <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: 0 }}>
+            Upload a Renpho CSV to get started.
+          </p>
+        </div>
+      )}
+
+      {hasData && (
+      <>
       {/* Metric description */}
       {(() => {
         const problem = problemsByKey.get(selectedMetric);
@@ -626,6 +656,8 @@ export function HealthDashboard() {
           </div>
         )}
       </div>
+      </>
+      )}
 
     </div>
   );
