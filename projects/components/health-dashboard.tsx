@@ -1,11 +1,9 @@
 "use client";
 
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { healthData as defaultHealthData, HealthRecord, userProfile, getUserAge } from "@/data/health-data";
 import { evaluateProblems, Problem } from "@/data/health-recommendations";
 import { CSVUploader } from "./csv-uploader";
-
-const STORAGE_KEY = "health-dashboard-data";
 
 type MetricKey = keyof Omit<HealthRecord, "time">;
 
@@ -260,36 +258,30 @@ const metricExplanations: Record<MetricKey, string> = {
   bmr: "Basal Metabolic Rate — calories your body burns at complete rest. Higher BMR means more lean mass.",
   visceralFat: "Fat stored around internal organs. Levels 1-9 are healthy. The most dangerous type of fat for long-term health.",
   water: "Percentage of your body composed of water. Above 55% indicates good hydration for athletic performance.",
-  bmi: "",
-  bodyFatMass: "",
-  leanBodyMass: "",
-  boneMass: "",
-  protein: "",
-  subcutaneousFat: "",
-  bodyAge: "",
 };
 
-function loadStoredData(): HealthRecord[] | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (!stored) return null;
-    return JSON.parse(stored) as HealthRecord[];
-  } catch {
-    return null;
-  }
-}
-
 export function HealthDashboard() {
-  const [data, setData] = useState<HealthRecord[]>(() => {
-    const stored = loadStoredData();
-    return stored ?? defaultHealthData;
-  });
+  const [data, setData] = useState<HealthRecord[]>(defaultHealthData);
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("weight");
   const [timeRange, setTimeRange] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [showUploader, setShowUploader] = useState(false);
-  const hasCustomData = useMemo(() => loadStoredData() !== null, [data]);
+  const [dbLoaded, setDbLoaded] = useState(false);
+
+  // Fetch from DB on mount
+  useEffect(() => {
+    fetch("/api/health")
+      .then((r) => r.json())
+      .then((res) => {
+        if (res.records && res.records.length > 0) {
+          setData(res.records);
+        }
+        setDbLoaded(true);
+      })
+      .catch(() => setDbLoaded(true));
+  }, []);
+
+  const hasCustomData = dbLoaded && data !== defaultHealthData;
 
   const handleUpload = useCallback(
     (records: HealthRecord[]) => {
@@ -297,16 +289,22 @@ export function HealthDashboard() {
         (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
       );
       setData(sorted);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
       setShowUploader(false);
+      // Persist to DB
+      fetch("/api/health", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ records: sorted }),
+      }).catch(console.error);
     },
     []
   );
 
   const handleReset = useCallback(() => {
-    localStorage.removeItem(STORAGE_KEY);
     setData(defaultHealthData);
     setShowUploader(false);
+    // Clear DB
+    fetch("/api/health", { method: "DELETE" }).catch(console.error);
   }, []);
 
   const filteredData = useMemo(() => {
