@@ -280,16 +280,6 @@ function loadStoredData(): HealthRecord[] | null {
   }
 }
 
-function mergeAndSort(existing: HealthRecord[], incoming: HealthRecord[]): HealthRecord[] {
-  const byDate = new Map<string, HealthRecord>();
-  for (const r of existing) byDate.set(r.time, r);
-  // Incoming records overwrite existing for the same date
-  for (const r of incoming) byDate.set(r.time, r);
-  return Array.from(byDate.values()).sort(
-    (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
-  );
-}
-
 export function HealthDashboard() {
   const [data, setData] = useState<HealthRecord[]>(() => {
     const stored = loadStoredData();
@@ -303,12 +293,14 @@ export function HealthDashboard() {
 
   const handleUpload = useCallback(
     (records: HealthRecord[]) => {
-      const merged = mergeAndSort(data, records);
-      setData(merged);
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      const sorted = [...records].sort(
+        (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+      );
+      setData(sorted);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(sorted));
       setShowUploader(false);
     },
-    [data]
+    []
   );
 
   const handleReset = useCallback(() => {
