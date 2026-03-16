@@ -267,6 +267,7 @@ export function HealthDashboard() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [showUploader, setShowUploader] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
+  const [lastUploadDate, setLastUploadDate] = useState<string | null>(null);
 
   // Fetch from DB on mount
   useEffect(() => {
@@ -296,6 +297,7 @@ export function HealthDashboard() {
       );
       setData(sorted);
       setShowUploader(false);
+      setLastUploadDate(new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }));
       // Persist to DB
       fetch("/api/health", {
         method: "POST",
@@ -309,7 +311,7 @@ export function HealthDashboard() {
 
   const handleReset = useCallback(() => {
     setData([]);
-    setShowUploader(false);
+    setLastUploadDate(null);
     // Clear DB
     fetch("/api/health", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
   }, []);
@@ -373,47 +375,68 @@ export function HealthDashboard() {
             )}
             {!hasData && " \u00b7 No data yet"}
           </p>
-          <button
-            onClick={() => setShowUploader(!showUploader)}
-            style={{
-              padding: "0.3rem 0.7rem",
-              borderRadius: 8,
-              border: "1px solid var(--bio-border)",
-              background: showUploader ? "#60a5fa20" : "transparent",
-              color: showUploader ? "#60a5fa" : "var(--muted)",
-              fontSize: "0.78rem",
-              fontWeight: 500,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              transition: "all 0.15s",
-            }}
-          >
-            {showUploader ? "Close" : "Upload CSV"}
-          </button>
+          {hasCustomData && (
+            <button
+              onClick={() => setShowUploader(!showUploader)}
+              title="Upload CSV"
+              style={{
+                padding: "0.3rem",
+                borderRadius: 8,
+                border: "1px solid var(--bio-border)",
+                background: showUploader ? "#60a5fa20" : "transparent",
+                color: showUploader ? "#60a5fa" : "var(--muted)",
+                fontSize: "0.85rem",
+                lineHeight: 1,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 28,
+                height: 28,
+              }}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+            </button>
+          )}
           {hasCustomData && (
             <button
               onClick={handleReset}
+              title={lastUploadDate ? `Last upload: ${lastUploadDate}` : "Clear all data"}
               style={{
-                padding: "0.3rem 0.7rem",
+                padding: "0.3rem",
                 borderRadius: 8,
                 border: "1px solid #ef444430",
                 background: "transparent",
                 color: "#ef4444",
-                fontSize: "0.78rem",
-                fontWeight: 500,
+                fontSize: "0.85rem",
+                lineHeight: 1,
                 cursor: "pointer",
                 fontFamily: "inherit",
                 transition: "all 0.15s",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                width: 28,
+                height: 28,
               }}
             >
-              Reset data
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
             </button>
           )}
         </div>
       </div>
 
-      {/* CSV Uploader */}
-      {showUploader && (
+      {/* CSV Uploader (when data exists and user clicks upload icon) */}
+      {showUploader && hasData && (
         <div
           style={{
             marginBottom: "1rem",
@@ -506,26 +529,16 @@ export function HealthDashboard() {
       </div>
       )}
 
-      {/* Empty state */}
+      {/* Empty state with inline uploader */}
       {!hasData && dbLoaded && (
         <div
           style={{
-            background: "var(--bio-bg)",
-            border: "1px solid var(--bio-border)",
-            borderRadius: 14,
-            padding: "3rem 2rem",
-            textAlign: "center",
-            marginBottom: "1.5rem",
             opacity: 0,
             animation: "rise 0.6s ease-out 0.1s forwards",
+            marginBottom: "1.5rem",
           }}
         >
-          <div style={{ fontSize: "1.1rem", fontWeight: 500, marginBottom: "0.5rem" }}>
-            No health data
-          </div>
-          <p style={{ color: "var(--muted)", fontSize: "0.85rem", margin: 0 }}>
-            Upload a Renpho CSV to get started.
-          </p>
+          <CSVUploader onUpload={handleUpload} />
         </div>
       )}
 
