@@ -35,6 +35,7 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "fat%": "bodyFat",
   "body fat rate(%)": "bodyFat",
   "body fat(%)": "bodyFat",
+  "body fat %": "bodyFat",
 
   // Muscle mass
   "muscle mass": "muscleMass",
@@ -42,6 +43,7 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "musclemass": "muscleMass",
   "muscle_mass": "muscleMass",
   "muscle(kg)": "muscleMass",
+  "muscle mass %": "muscleMass",
 
   // BMR
   bmr: "bmr",
@@ -75,6 +77,7 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "bonemass": "boneMass",
   "bone_mass": "boneMass",
   "bone(kg)": "boneMass",
+  "bone mass %": "boneMass",
 
   // Visceral fat
   "visceral fat": "visceralFat",
@@ -88,6 +91,7 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "protein (%)": "protein",
   "protein(%)": "protein",
   "protein rate(%)": "protein",
+  "protein %": "protein",
 
   // Skeletal muscle mass
   "skeletal muscle mass": "skeletalMuscleMass",
@@ -103,6 +107,7 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "subcutaneousfat": "subcutaneousFat",
   "subcutaneous_fat": "subcutaneousFat",
   "subcutaneous fat(%)": "subcutaneousFat",
+  "subcutaneous fat %": "subcutaneousFat",
 
   // Body age
   "body age": "bodyAge",
@@ -119,7 +124,7 @@ const NUMERIC_KEYS: (keyof HealthRecord)[] = [
 
 // Headers that indicate a name/member/user column (used to filter by person)
 const NAME_HEADERS = new Set([
-  "name", "user", "member", "family member", "person", "profile",
+  "name", "user", "member", "family member", "family members", "person", "profile",
   "account", "user name", "username", "nickname", "who",
 ]);
 

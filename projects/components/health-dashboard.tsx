@@ -66,7 +66,19 @@ function Chart({
   const padT = 20;
   const padB = 50;
 
-  const values = data.map((d) => d[metric.key] as number);
+  // Filter out 0 values (missing data from CSV imports)
+  const validData = data.filter((d) => (d[metric.key] as number) > 0);
+  if (validData.length < 2) {
+    return (
+      <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", height: "auto" }}>
+        <text x={width / 2} y={height / 2} textAnchor="middle" fill="#666" fontSize="13" fontFamily="Inter, sans-serif">
+          Not enough data for {metric.label}.
+        </text>
+      </svg>
+    );
+  }
+
+  const values = validData.map((d) => d[metric.key] as number);
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = max - min || 1;
@@ -97,9 +109,9 @@ function Chart({
     return metric.decimals === 0 ? Math.round(v) : +v.toFixed(metric.decimals);
   });
 
-  const labelCount = Math.min(6, data.length);
+  const labelCount = Math.min(6, validData.length);
   const labelIndices = Array.from({ length: labelCount }, (_, i) =>
-    Math.round((i / (labelCount - 1)) * (data.length - 1))
+    Math.round((i / (labelCount - 1)) * (validData.length - 1))
   );
 
   const tooltipText = hoveredIndex !== null
@@ -155,7 +167,7 @@ function Chart({
           fontSize="11"
           fontFamily="Inter, sans-serif"
         >
-          {formatDate(data[idx].time)}
+          {formatDate(validData[idx].time)}
         </text>
       ))}
 
@@ -227,7 +239,7 @@ function Chart({
             fontSize="10"
             fontFamily="Inter, sans-serif"
           >
-            {formatDate(data[hoveredIndex].time)}
+            {formatDate(validData[hoveredIndex].time)}
           </text>
         </g>
       )}
@@ -316,12 +328,16 @@ export function HealthDashboard() {
   const latest = data[data.length - 1];
   const oldest = data[0];
 
-  const currentValue = latest[selectedMetric] as number;
-  const firstValue = filteredData[0]?.[selectedMetric] as number;
+  // Use latest non-zero value as current display value
+  const latestNonZeroRecord = [...data].reverse().find((d) => (d[selectedMetric] as number) > 0);
+  const currentValue = latestNonZeroRecord ? (latestNonZeroRecord[selectedMetric] as number) : (latest[selectedMetric] as number);
+  // Find the first non-zero value for comparison
+  const firstNonZero = filteredData.find((d) => (d[selectedMetric] as number) > 0);
+  const firstValue = firstNonZero ? (firstNonZero[selectedMetric] as number) : currentValue;
   const change = currentValue - firstValue;
   const changeStr =
     metric.decimals === 0 ? change.toFixed(0) : change.toFixed(metric.decimals);
-  const changePercent = ((change / firstValue) * 100).toFixed(1);
+  const changePercent = firstValue !== 0 ? ((change / firstValue) * 100).toFixed(1) : "0.0";
 
   const warningKeys = useMemo(() => getAllProblemKeys(data), [data]);
   const problemsByKey = useMemo(() => {
@@ -422,7 +438,9 @@ export function HealthDashboard() {
       >
         {metrics.map((m) => {
           const isActive = m.key === selectedMetric;
-          const val = latest[m.key] as number;
+          // Show latest non-zero value for each metric
+          const latestNonZero = [...data].reverse().find((d) => (d[m.key] as number) > 0);
+          const val = latestNonZero ? (latestNonZero[m.key] as number) : (latest[m.key] as number);
           const hasWarning = warningKeys.has(m.key);
           return (
             <button
