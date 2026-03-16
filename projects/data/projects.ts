@@ -10,4 +10,9 @@ export const projects: Project[] = [
     name: "Health",
     description: "Personal health tracking and wellness.",
   },
+  {
+    slug: "wealth",
+    name: "Wealth",
+    description: "Personal wealth tracking and net worth evolution.",
+  },
 ];
