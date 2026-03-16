@@ -268,6 +268,7 @@ export function HealthDashboard() {
   const [showUploader, setShowUploader] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [lastUploadDate, setLastUploadDate] = useState<string | null>(null);
+  const [resetStep, setResetStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
 
   // Fetch from DB on mount
   useEffect(() => {
@@ -310,11 +311,27 @@ export function HealthDashboard() {
   );
 
   const handleReset = useCallback(() => {
+    if (resetStep === 0) {
+      setResetStep(1);
+      return;
+    }
+    if (resetStep === 1) {
+      setResetStep(2);
+      return;
+    }
+    // Step 2: actually delete
     setData([]);
     setLastUploadDate(null);
-    // Clear DB
+    setResetStep(0);
     fetch("/api/health", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
-  }, []);
+  }, [resetStep]);
+
+  // Reset the confirmation steps if user doesn't continue within 4s
+  useEffect(() => {
+    if (resetStep === 0) return;
+    const t = setTimeout(() => setResetStep(0), 4000);
+    return () => clearTimeout(t);
+  }, [resetStep]);
 
   const filteredData = useMemo(() => {
     if (timeRange === 0) return data;
@@ -407,14 +424,14 @@ export function HealthDashboard() {
           {hasCustomData && (
             <button
               onClick={handleReset}
-              title={lastUploadDate ? `Last upload: ${lastUploadDate}` : "Clear all data"}
+              title={resetStep === 0 ? (lastUploadDate ? `Last upload: ${lastUploadDate}` : "Clear all data") : resetStep === 1 ? "Click again to confirm" : "Click to permanently delete"}
               style={{
-                padding: "0.3rem",
+                padding: resetStep > 0 ? "0.3rem 0.6rem" : "0.3rem",
                 borderRadius: 8,
-                border: "1px solid #ef444430",
-                background: "transparent",
+                border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
+                background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
                 color: "#ef4444",
-                fontSize: "0.85rem",
+                fontSize: "0.75rem",
                 lineHeight: 1,
                 cursor: "pointer",
                 fontFamily: "inherit",
@@ -422,7 +439,7 @@ export function HealthDashboard() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 28,
+                gap: "0.3rem",
                 height: 28,
               }}
             >
@@ -430,6 +447,8 @@ export function HealthDashboard() {
                 <polyline points="1 4 1 10 7 10" />
                 <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
               </svg>
+              {resetStep === 1 && "Are you sure?"}
+              {resetStep === 2 && "Really delete all?"}
             </button>
           )}
         </div>

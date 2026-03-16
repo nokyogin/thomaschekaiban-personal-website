@@ -252,6 +252,9 @@ export function WealthDashboard() {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [resetStep, setResetStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
 
   useEffect(() => {
     fetch("/api/wealth", { credentials: "same-origin" })
@@ -368,11 +371,50 @@ export function WealthDashboard() {
   );
 
   const handleReset = useCallback(() => {
+    if (resetStep === 0) {
+      setResetStep(1);
+      return;
+    }
+    if (resetStep === 1) {
+      setResetStep(2);
+      return;
+    }
+    // Step 2: actually delete
     setEntries([]);
     setSelectedCategory(null);
     setShowAddForm(false);
+    setEditingCategory(null);
+    setResetStep(0);
     fetch("/api/wealth", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
-  }, []);
+  }, [resetStep]);
+
+  // Reset the confirmation steps if user clicks elsewhere after a delay
+  useEffect(() => {
+    if (resetStep === 0) return;
+    const t = setTimeout(() => setResetStep(0), 4000);
+    return () => clearTimeout(t);
+  }, [resetStep]);
+
+  const handleUpdateCategory = useCallback(
+    (category: string, amount: number) => {
+      fetch("/api/wealth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ category, amount }),
+      })
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.entry) {
+            setEntries((prev) => [...prev, res.entry]);
+          }
+          setEditingCategory(null);
+          setEditAmount("");
+        })
+        .catch((err) => console.error("Failed to update wealth entry:", err));
+    },
+    []
+  );
 
   const currentColor = selectedCategory ? categoryColors[selectedCategory] : "#60a5fa";
   const currentValue = selectedCategory
@@ -445,14 +487,14 @@ export function WealthDashboard() {
           {hasData && (
             <button
               onClick={handleReset}
-              title="Clear all data"
+              title={resetStep === 0 ? "Clear all data" : resetStep === 1 ? "Click again to confirm" : "Click to permanently delete"}
               style={{
-                padding: "0.3rem",
+                padding: resetStep > 0 ? "0.3rem 0.6rem" : "0.3rem",
                 borderRadius: 8,
-                border: "1px solid #ef444430",
-                background: "transparent",
+                border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
+                background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
                 color: "#ef4444",
-                fontSize: "0.85rem",
+                fontSize: "0.75rem",
                 lineHeight: 1,
                 cursor: "pointer",
                 fontFamily: "inherit",
@@ -460,7 +502,7 @@ export function WealthDashboard() {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                width: 28,
+                gap: "0.3rem",
                 height: 28,
               }}
             >
@@ -468,6 +510,8 @@ export function WealthDashboard() {
                 <polyline points="1 4 1 10 7 10" />
                 <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
               </svg>
+              {resetStep === 1 && "Are you sure?"}
+              {resetStep === 2 && "Really delete all?"}
             </button>
           )}
         </div>
@@ -565,14 +609,23 @@ export function WealthDashboard() {
           {/* Per-category cards */}
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
+            const isEditing = editingCategory === cat;
             const color = categoryColors[cat];
             return (
               <button
                 key={cat}
-                onClick={() => setSelectedCategory(isActive ? null : cat)}
+                onClick={() => {
+                  if (isEditing) return;
+                  setSelectedCategory(isActive ? null : cat);
+                }}
+                onDoubleClick={(e) => {
+                  e.preventDefault();
+                  setEditingCategory(isEditing ? null : cat);
+                  setEditAmount(String(latestByCategory[cat] ?? 0));
+                }}
                 style={{
-                  background: isActive ? color + "15" : "var(--bio-bg)",
-                  border: `1px solid ${isActive ? color + "60" : "var(--bio-border)"}`,
+                  background: isEditing ? color + "20" : isActive ? color + "15" : "var(--bio-bg)",
+                  border: `1px solid ${isActive || isEditing ? color + "60" : "var(--bio-border)"}`,
                   borderRadius: 10,
                   padding: "0.65rem 0.75rem",
                   cursor: "pointer",
@@ -582,13 +635,13 @@ export function WealthDashboard() {
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.15rem",
-                  borderLeft: isActive ? `3px solid ${color}` : `1px solid ${isActive ? color + "60" : "var(--bio-border)"}`,
+                  borderLeft: isActive || isEditing ? `3px solid ${color}` : `1px solid ${isActive ? color + "60" : "var(--bio-border)"}`,
                 }}
               >
                 <span
                   style={{
                     fontSize: "0.7rem",
-                    color: isActive ? color : "var(--muted)",
+                    color: isActive || isEditing ? color : "var(--muted)",
                     fontWeight: 500,
                     textTransform: "uppercase",
                     letterSpacing: "0.04em",
@@ -596,15 +649,69 @@ export function WealthDashboard() {
                 >
                   {cat}
                 </span>
-                <span
-                  style={{
-                    fontSize: "1.1rem",
-                    fontWeight: 600,
-                    color: isActive ? "#e8e8e8" : "var(--fg)",
-                  }}
-                >
-                  {fmt.format(latestByCategory[cat] ?? 0)}
-                </span>
+                {isEditing ? (
+                  <form
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      const num = parseFloat(editAmount);
+                      if (!isNaN(num)) handleUpdateCategory(cat, num);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}
+                  >
+                    <input
+                      type="number"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      autoFocus
+                      step="any"
+                      style={{
+                        width: "80px",
+                        padding: "0.2rem 0.4rem",
+                        borderRadius: 6,
+                        border: `1px solid ${color}60`,
+                        background: "var(--bio-bg)",
+                        color: "var(--fg)",
+                        fontSize: "0.85rem",
+                        fontFamily: "inherit",
+                        outline: "none",
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setEditingCategory(null);
+                          setEditAmount("");
+                        }
+                      }}
+                    />
+                    <button
+                      type="submit"
+                      style={{
+                        padding: "0.2rem 0.4rem",
+                        borderRadius: 6,
+                        border: `1px solid ${color}60`,
+                        background: color + "20",
+                        color,
+                        fontSize: "0.7rem",
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        fontFamily: "inherit",
+                      }}
+                    >
+                      Save
+                    </button>
+                  </form>
+                ) : (
+                  <span
+                    style={{
+                      fontSize: "1.1rem",
+                      fontWeight: 600,
+                      color: isActive ? "#e8e8e8" : "var(--fg)",
+                    }}
+                  >
+                    {fmt.format(latestByCategory[cat] ?? 0)}
+                  </span>
+                )}
               </button>
             );
           })}
