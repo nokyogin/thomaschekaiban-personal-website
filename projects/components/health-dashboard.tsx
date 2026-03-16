@@ -270,15 +270,21 @@ export function HealthDashboard() {
 
   // Fetch from DB on mount
   useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
+    fetch("/api/health", { credentials: "same-origin" })
+      .then((r) => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+      })
       .then((res) => {
         if (res.records && res.records.length > 0) {
           setData(res.records);
         }
         setDbLoaded(true);
       })
-      .catch(() => setDbLoaded(true));
+      .catch((err) => {
+        console.error("Failed to load health data:", err);
+        setDbLoaded(true);
+      });
   }, []);
 
   const hasCustomData = dbLoaded && data.length > 0;
@@ -294,8 +300,9 @@ export function HealthDashboard() {
       fetch("/api/health", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
         body: JSON.stringify({ records: sorted }),
-      }).catch(console.error);
+      }).catch((err) => console.error("Failed to save health data:", err));
     },
     []
   );
@@ -304,7 +311,7 @@ export function HealthDashboard() {
     setData([]);
     setShowUploader(false);
     // Clear DB
-    fetch("/api/health", { method: "DELETE" }).catch(console.error);
+    fetch("/api/health", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
   }, []);
 
   const filteredData = useMemo(() => {
