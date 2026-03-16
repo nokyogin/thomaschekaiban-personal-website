@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { healthData, HealthRecord, userProfile, getUserAge } from "@/data/health-data";
+import { useState, useMemo, useCallback } from "react";
+import { healthData as defaultHealthData, HealthRecord, userProfile, getUserAge } from "@/data/health-data";
 import { evaluateProblems, Problem } from "@/data/health-recommendations";
+import { CSVUploader } from "./csv-uploader";
+
+const STORAGE_KEY = "health-dashboard-data";
 
 type MetricKey = keyof Omit<HealthRecord, "time">;
 
@@ -254,21 +257,64 @@ const metricExplanations: Record<MetricKey, string> = {
   bodyAge: "",
 };
 
+function loadStoredData(): HealthRecord[] | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (!stored) return null;
+    return JSON.parse(stored) as HealthRecord[];
+  } catch {
+    return null;
+  }
+}
+
+function mergeAndSort(existing: HealthRecord[], incoming: HealthRecord[]): HealthRecord[] {
+  const byDate = new Map<string, HealthRecord>();
+  for (const r of existing) byDate.set(r.time, r);
+  // Incoming records overwrite existing for the same date
+  for (const r of incoming) byDate.set(r.time, r);
+  return Array.from(byDate.values()).sort(
+    (a, b) => new Date(a.time).getTime() - new Date(b.time).getTime()
+  );
+}
+
 export function HealthDashboard() {
+  const [data, setData] = useState<HealthRecord[]>(() => {
+    const stored = loadStoredData();
+    return stored ?? defaultHealthData;
+  });
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("weight");
   const [timeRange, setTimeRange] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
+  const [showUploader, setShowUploader] = useState(false);
+  const hasCustomData = useMemo(() => loadStoredData() !== null, [data]);
+
+  const handleUpload = useCallback(
+    (records: HealthRecord[]) => {
+      const merged = mergeAndSort(data, records);
+      setData(merged);
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(merged));
+      setShowUploader(false);
+    },
+    [data]
+  );
+
+  const handleReset = useCallback(() => {
+    localStorage.removeItem(STORAGE_KEY);
+    setData(defaultHealthData);
+    setShowUploader(false);
+  }, []);
 
   const filteredData = useMemo(() => {
-    if (timeRange === 0) return healthData;
+    if (timeRange === 0) return data;
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - timeRange);
-    return healthData.filter((d) => new Date(d.time) >= cutoff);
-  }, [timeRange]);
+    return data.filter((d) => new Date(d.time) >= cutoff);
+  }, [timeRange, data]);
 
   const metric = metrics.find((m) => m.key === selectedMetric)!;
-  const latest = healthData[healthData.length - 1];
-  const oldest = healthData[0];
+  const latest = data[data.length - 1];
+  const oldest = data[0];
 
   const currentValue = latest[selectedMetric] as number;
   const firstValue = filteredData[0]?.[selectedMetric] as number;
@@ -277,13 +323,13 @@ export function HealthDashboard() {
     metric.decimals === 0 ? change.toFixed(0) : change.toFixed(metric.decimals);
   const changePercent = ((change / firstValue) * 100).toFixed(1);
 
-  const warningKeys = useMemo(() => getAllProblemKeys(healthData), []);
+  const warningKeys = useMemo(() => getAllProblemKeys(data), [data]);
   const problemsByKey = useMemo(() => {
-    const problems = evaluateProblems(healthData, userProfile);
+    const problems = evaluateProblems(data, userProfile);
     const map = new Map<MetricKey, Problem>();
     for (const p of problems) map.set(p.metricKey, p);
     return map;
-  }, []);
+  }, [data]);
 
   return (
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100 }}>
@@ -305,12 +351,63 @@ export function HealthDashboard() {
         >
           Health Dashboard
         </h1>
-        <p style={{ color: "var(--muted)", fontSize: "0.9rem" }}>
-          {getUserAge()} y/o &middot; {userProfile.heightCm} cm &middot;{" "}
-          {formatDateLong(oldest.time)} to {formatDateLong(latest.time)} &middot;{" "}
-          {healthData.length} measurements
-        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
+          <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: 0 }}>
+            {getUserAge()} y/o &middot; {userProfile.heightCm} cm &middot;{" "}
+            {formatDateLong(oldest.time)} to {formatDateLong(latest.time)} &middot;{" "}
+            {data.length} measurements
+          </p>
+          <button
+            onClick={() => setShowUploader(!showUploader)}
+            style={{
+              padding: "0.3rem 0.7rem",
+              borderRadius: 8,
+              border: "1px solid var(--bio-border)",
+              background: showUploader ? "#60a5fa20" : "transparent",
+              color: showUploader ? "#60a5fa" : "var(--muted)",
+              fontSize: "0.78rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+            }}
+          >
+            {showUploader ? "Close" : "Upload CSV"}
+          </button>
+          {hasCustomData && (
+            <button
+              onClick={handleReset}
+              style={{
+                padding: "0.3rem 0.7rem",
+                borderRadius: 8,
+                border: "1px solid #ef444430",
+                background: "transparent",
+                color: "#ef4444",
+                fontSize: "0.78rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+              }}
+            >
+              Reset data
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* CSV Uploader */}
+      {showUploader && (
+        <div
+          style={{
+            marginBottom: "1rem",
+            opacity: 0,
+            animation: "rise 0.4s ease-out forwards",
+          }}
+        >
+          <CSVUploader onUpload={handleUpload} />
+        </div>
+      )}
 
       {/* KPI Tabs */}
       <div
