@@ -43,7 +43,6 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "musclemass": "muscleMass",
   "muscle_mass": "muscleMass",
   "muscle(kg)": "muscleMass",
-  "muscle mass %": "muscleMass",
 
   // BMR
   bmr: "bmr",
@@ -77,7 +76,6 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "bonemass": "boneMass",
   "bone_mass": "boneMass",
   "bone(kg)": "boneMass",
-  "bone mass %": "boneMass",
 
   // Visceral fat
   "visceral fat": "visceralFat",
@@ -266,12 +264,10 @@ interface CSVUploaderProps {
 export function CSVUploader({ onUpload }: CSVUploaderProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
-  const [result, setResult] = useState<ParseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFile = useCallback((file: File) => {
     setError(null);
-    setResult(null);
 
     if (!file.name.endsWith(".csv")) {
       setError("Please upload a .csv file.");
@@ -294,10 +290,10 @@ export function CSVUploader({ onUpload }: CSVUploaderProps) {
         );
         return;
       }
-      setResult(parsed);
+      onUpload(parsed.records);
     };
     reader.readAsText(file);
-  }, []);
+  }, [onUpload]);
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
@@ -308,13 +304,6 @@ export function CSVUploader({ onUpload }: CSVUploaderProps) {
     },
     [handleFile]
   );
-
-  const handleConfirm = useCallback(() => {
-    if (result) {
-      onUpload(result.records);
-      setResult(null);
-    }
-  }, [result, onUpload]);
 
   return (
     <div>
@@ -370,93 +359,6 @@ export function CSVUploader({ onUpload }: CSVUploaderProps) {
           }}
         >
           {error}
-        </div>
-      )}
-
-      {/* Preview */}
-      {result && (
-        <div
-          style={{
-            marginTop: "0.75rem",
-            padding: "1rem",
-            background: "var(--bio-bg)",
-            border: "1px solid var(--bio-border)",
-            borderRadius: 12,
-          }}
-        >
-          <div style={{ fontSize: "0.85rem", fontWeight: 600, marginBottom: "0.5rem" }}>
-            Preview — {result.records.length} records found
-          </div>
-
-          {/* Mapped columns */}
-          <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.35rem" }}>
-            <span style={{ color: "#34d399" }}>Mapped:</span>{" "}
-            {result.mappedColumns.join(", ")}
-          </div>
-
-          {/* Unmapped columns */}
-          {result.unmappedColumns.length > 0 && (
-            <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.35rem" }}>
-              <span style={{ color: "#fb923c" }}>Skipped:</span>{" "}
-              {result.unmappedColumns.join(", ")}
-            </div>
-          )}
-
-          {/* Name filtering */}
-          {result.filteredByName && (
-            <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.35rem" }}>
-              <span style={{ color: "#60a5fa" }}>Filtered:</span>{" "}
-              kept {result.records.length} rows for Thomas, excluded {result.filteredOutRows} from other members
-            </div>
-          )}
-
-          {/* Skipped rows */}
-          {result.skippedRows > 0 && (
-            <div style={{ fontSize: "0.78rem", color: "#fb923c", marginBottom: "0.35rem" }}>
-              {result.skippedRows} row{result.skippedRows > 1 ? "s" : ""} skipped (bad/missing date)
-            </div>
-          )}
-
-          {/* Date range */}
-          <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.75rem" }}>
-            Range: {result.records[0].time} to{" "}
-            {result.records[result.records.length - 1].time}
-          </div>
-
-          {/* Actions */}
-          <div style={{ display: "flex", gap: "0.5rem" }}>
-            <button
-              onClick={handleConfirm}
-              style={{
-                padding: "0.45rem 1rem",
-                borderRadius: 8,
-                border: "1px solid #60a5fa60",
-                background: "#60a5fa20",
-                color: "#60a5fa",
-                fontSize: "0.82rem",
-                fontWeight: 600,
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              Import {result.records.length} records
-            </button>
-            <button
-              onClick={() => setResult(null)}
-              style={{
-                padding: "0.45rem 1rem",
-                borderRadius: 8,
-                border: "1px solid var(--bio-border)",
-                background: "transparent",
-                color: "var(--muted)",
-                fontSize: "0.82rem",
-                cursor: "pointer",
-                fontFamily: "inherit",
-              }}
-            >
-              Cancel
-            </button>
-          </div>
         </div>
       )}
     </div>
