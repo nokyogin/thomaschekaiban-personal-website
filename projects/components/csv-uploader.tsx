@@ -183,7 +183,12 @@ export function parseCSV(text: string): { records: HealthRecord[]; error?: strin
     return { records: [], error: "No valid rows found. Make sure dates are parseable (e.g. 2024-01-14 or 01/14/2024)." };
   }
 
-  return { records };
+  // Deduplicate: keep last entry per day
+  const byDate = new Map<string, HealthRecord>();
+  for (const r of records) {
+    byDate.set(r.time, r);
+  }
+  return { records: Array.from(byDate.values()) };
 }
 
 interface CSVUploaderProps {
@@ -266,7 +271,7 @@ export function CSVUploader({ onUpload }: CSVUploaderProps) {
           Drop CSV here or click to browse
         </div>
         <div style={{ fontSize: "0.75rem", color: "var(--muted)" }}>
-          Supports Renpho, Withings, Xiaomi, and generic body composition CSVs
+          Supports any body composition CSV with columns like Weight, Body Fat, etc.
         </div>
       </div>
 
