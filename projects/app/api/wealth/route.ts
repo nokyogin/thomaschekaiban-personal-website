@@ -4,6 +4,7 @@ import {
   getAllWealthEntries,
   insertWealthEntry,
   deleteAllWealthEntries,
+  renameWealthCategory,
 } from "@/lib/wealth-db";
 
 export async function GET() {
@@ -34,6 +35,27 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: true, entry });
   } catch (e) {
     console.error("Failed to insert wealth entry:", e);
+    return NextResponse.json({ error: "Database error" }, { status: 500 });
+  }
+}
+
+export async function PATCH(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { oldCategory, newCategory } = body;
+
+    if (!oldCategory || typeof oldCategory !== "string" || !oldCategory.trim()) {
+      return NextResponse.json({ error: "Old category name is required" }, { status: 400 });
+    }
+    if (!newCategory || typeof newCategory !== "string" || !newCategory.trim()) {
+      return NextResponse.json({ error: "New category name is required" }, { status: 400 });
+    }
+
+    await ensureWealthTable();
+    await renameWealthCategory(oldCategory.trim(), newCategory.trim());
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error("Failed to rename wealth category:", e);
     return NextResponse.json({ error: "Database error" }, { status: 500 });
   }
 }

@@ -51,3 +51,14 @@ export async function deleteAllWealthEntries(): Promise<void> {
 export async function deleteWealthEntry(id: number): Promise<void> {
   await sql`DELETE FROM wealth_entries WHERE id = ${id}`;
 }
+
+export async function renameWealthCategory(
+  oldName: string,
+  newName: string
+): Promise<void> {
+  await sql`
+    UPDATE wealth_entries
+    SET category = ${newName}
+    WHERE category = ${oldName}
+  `;
+}
