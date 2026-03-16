@@ -117,6 +117,20 @@ const NUMERIC_KEYS: (keyof HealthRecord)[] = [
   "protein", "skeletalMuscleMass", "subcutaneousFat", "bodyAge",
 ];
 
+// Headers that indicate a name/member/user column (used to filter by person)
+const NAME_HEADERS = new Set([
+  "name", "user", "member", "family member", "person", "profile",
+  "account", "user name", "username", "nickname", "who",
+]);
+
+// We only want data for Thomas Chekaiban
+const TARGET_NAME_PATTERNS = ["thomas", "chekaiban", "tom"];
+
+function isTargetUser(value: string): boolean {
+  const lower = value.trim().toLowerCase();
+  return TARGET_NAME_PATTERNS.some((p) => lower.includes(p));
+}
+
 function normalizeHeader(raw: string): string {
   return raw.trim().toLowerCase().replace(/[_\-]+/g, " ").replace(/\s+/g, " ");
 }
@@ -141,12 +155,14 @@ interface ParseResult {
   mappedColumns: string[];
   unmappedColumns: string[];
   skippedRows: number;
+  filteredByName: boolean;
+  filteredOutRows: number;
 }
 
 function parseCSV(text: string): ParseResult {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) {
-    return { records: [], mappedColumns: [], unmappedColumns: [], skippedRows: 0 };
+    return { records: [], mappedColumns: [], unmappedColumns: [], skippedRows: 0, filteredByName: false, filteredOutRows: 0 };
   }
 
   // Detect delimiter (comma or semicolon or tab)
@@ -164,23 +180,47 @@ function parseCSV(text: string): ParseResult {
     return HEADER_MAP[norm] ?? null;
   });
 
+  // Detect name/member column index for filtering by person
+  let nameColIndex = -1;
+  for (let i = 0; i < rawHeaders.length; i++) {
+    if (NAME_HEADERS.has(normalizeHeader(rawHeaders[i]))) {
+      nameColIndex = i;
+      break;
+    }
+  }
+
   const mappedColumns: string[] = [];
   const unmappedColumns: string[] = [];
   rawHeaders.forEach((h, i) => {
     if (columnMap[i]) mappedColumns.push(`${h.trim()} → ${columnMap[i]}`);
-    else unmappedColumns.push(h.trim());
+    else if (i !== nameColIndex) unmappedColumns.push(h.trim());
   });
+
+  if (nameColIndex >= 0) {
+    mappedColumns.push(`${rawHeaders[nameColIndex].trim()} → filter by name`);
+  }
 
   // Must have at least "time" mapped
   if (!columnMap.includes("time")) {
-    return { records: [], mappedColumns, unmappedColumns, skippedRows: lines.length - 1 };
+    return { records: [], mappedColumns, unmappedColumns, skippedRows: lines.length - 1, filteredByName: nameColIndex >= 0, filteredOutRows: 0 };
   }
 
   const records: HealthRecord[] = [];
   let skippedRows = 0;
+  let filteredOutRows = 0;
 
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(delimiter);
+
+    // If there's a name column, skip rows that don't match the target user
+    if (nameColIndex >= 0) {
+      const nameVal = cols[nameColIndex] ?? "";
+      if (!isTargetUser(nameVal)) {
+        filteredOutRows++;
+        continue;
+      }
+    }
+
     const record: Partial<HealthRecord> = {};
 
     for (let j = 0; j < cols.length; j++) {
@@ -211,7 +251,7 @@ function parseCSV(text: string): ParseResult {
     records.push(record as HealthRecord);
   }
 
-  return { records, mappedColumns, unmappedColumns, skippedRows };
+  return { records, mappedColumns, unmappedColumns, skippedRows, filteredByName: nameColIndex >= 0, filteredOutRows };
 }
 
 interface CSVUploaderProps {
@@ -354,6 +394,14 @@ export function CSVUploader({ onUpload }: CSVUploaderProps) {
             <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.35rem" }}>
               <span style={{ color: "#fb923c" }}>Skipped:</span>{" "}
               {result.unmappedColumns.join(", ")}
+            </div>
+          )}
+
+          {/* Name filtering */}
+          {result.filteredByName && (
+            <div style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: "0.35rem" }}>
+              <span style={{ color: "#60a5fa" }}>Filtered:</span>{" "}
+              kept {result.records.length} rows for Thomas, excluded {result.filteredOutRows} from other members
             </div>
           )}
 
