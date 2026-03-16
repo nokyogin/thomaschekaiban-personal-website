@@ -21,12 +21,7 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "weight_kg": "weight",
   kg: "weight",
 
-  // BMI
-  bmi: "bmi",
-  "bmi (kg/m²)": "bmi",
-  "body mass index": "bmi",
-
-  // Body fat
+  // Body fat (%)
   "body fat": "bodyFat",
   "body fat (%)": "bodyFat",
   "bodyfat": "bodyFat",
@@ -37,12 +32,19 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "body fat(%)": "bodyFat",
   "body fat %": "bodyFat",
 
-  // Muscle mass
+  // Muscle mass (kg)
   "muscle mass": "muscleMass",
   "muscle mass (kg)": "muscleMass",
   "musclemass": "muscleMass",
   "muscle_mass": "muscleMass",
   "muscle(kg)": "muscleMass",
+
+  // Skeletal muscle mass (kg)
+  "skeletal muscle mass": "skeletalMuscleMass",
+  "skeletal muscle mass (kg)": "skeletalMuscleMass",
+  "skeletal muscle": "skeletalMuscleMass",
+  "skeletalmusclemass": "skeletalMuscleMass",
+  "skeletal_muscle_mass": "skeletalMuscleMass",
 
   // BMR
   bmr: "bmr",
@@ -51,32 +53,6 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "basal metabolism": "bmr",
   "bmr(kcal)": "bmr",
 
-  // Water
-  water: "water",
-  "water (%)": "water",
-  "body water": "water",
-  "body water(%)": "water",
-  "water rate(%)": "water",
-
-  // Body fat mass
-  "body fat mass": "bodyFatMass",
-  "body fat mass (kg)": "bodyFatMass",
-  "fat mass": "bodyFatMass",
-  "fat mass(kg)": "bodyFatMass",
-
-  // Lean body mass
-  "lean body mass": "leanBodyMass",
-  "lean body mass (kg)": "leanBodyMass",
-  "lean mass": "leanBodyMass",
-  "fat free weight(kg)": "leanBodyMass",
-
-  // Bone mass
-  "bone mass": "boneMass",
-  "bone mass (kg)": "boneMass",
-  "bonemass": "boneMass",
-  "bone_mass": "boneMass",
-  "bone(kg)": "boneMass",
-
   // Visceral fat
   "visceral fat": "visceralFat",
   "visceral fat level": "visceralFat",
@@ -84,40 +60,17 @@ const HEADER_MAP: Record<string, keyof HealthRecord> = {
   "visceral_fat": "visceralFat",
   "visceral fat index": "visceralFat",
 
-  // Protein
-  protein: "protein",
-  "protein (%)": "protein",
-  "protein(%)": "protein",
-  "protein rate(%)": "protein",
-  "protein %": "protein",
-
-  // Skeletal muscle mass
-  "skeletal muscle mass": "skeletalMuscleMass",
-  "skeletal muscle mass (kg)": "skeletalMuscleMass",
-  "skeletal muscle": "skeletalMuscleMass",
-  "skeletalmusclemass": "skeletalMuscleMass",
-  "skeletal_muscle_mass": "skeletalMuscleMass",
-  "muscle rate(%)": "skeletalMuscleMass",
-
-  // Subcutaneous fat
-  "subcutaneous fat": "subcutaneousFat",
-  "subcutaneous fat (%)": "subcutaneousFat",
-  "subcutaneousfat": "subcutaneousFat",
-  "subcutaneous_fat": "subcutaneousFat",
-  "subcutaneous fat(%)": "subcutaneousFat",
-  "subcutaneous fat %": "subcutaneousFat",
-
-  // Body age
-  "body age": "bodyAge",
-  "bodyage": "bodyAge",
-  "body_age": "bodyAge",
-  "metabolic age": "bodyAge",
+  // Water (%)
+  water: "water",
+  "water (%)": "water",
+  "body water": "water",
+  "body water(%)": "water",
+  "water rate(%)": "water",
 };
 
 const NUMERIC_KEYS: (keyof HealthRecord)[] = [
-  "weight", "bmi", "bodyFat", "muscleMass", "bmr", "water",
-  "bodyFatMass", "leanBodyMass", "boneMass", "visceralFat",
-  "protein", "skeletalMuscleMass", "subcutaneousFat", "bodyAge",
+  "weight", "bodyFat", "muscleMass", "skeletalMuscleMass",
+  "bmr", "visceralFat", "water",
 ];
 
 // Headers that indicate a name/member/user column (used to filter by person)
@@ -153,19 +106,10 @@ function parseDate(raw: string): string | null {
   return null;
 }
 
-interface ParseResult {
-  records: HealthRecord[];
-  mappedColumns: string[];
-  unmappedColumns: string[];
-  skippedRows: number;
-  filteredByName: boolean;
-  filteredOutRows: number;
-}
-
-function parseCSV(text: string): ParseResult {
+export function parseCSV(text: string): { records: HealthRecord[]; error?: string } {
   const lines = text.split(/\r?\n/).filter((l) => l.trim());
   if (lines.length < 2) {
-    return { records: [], mappedColumns: [], unmappedColumns: [], skippedRows: 0, filteredByName: false, filteredOutRows: 0 };
+    return { records: [], error: "File has no data rows." };
   }
 
   // Detect delimiter (comma or semicolon or tab)
@@ -192,25 +136,12 @@ function parseCSV(text: string): ParseResult {
     }
   }
 
-  const mappedColumns: string[] = [];
-  const unmappedColumns: string[] = [];
-  rawHeaders.forEach((h, i) => {
-    if (columnMap[i]) mappedColumns.push(`${h.trim()} → ${columnMap[i]}`);
-    else if (i !== nameColIndex) unmappedColumns.push(h.trim());
-  });
-
-  if (nameColIndex >= 0) {
-    mappedColumns.push(`${rawHeaders[nameColIndex].trim()} → filter by name`);
-  }
-
   // Must have at least "time" mapped
   if (!columnMap.includes("time")) {
-    return { records: [], mappedColumns, unmappedColumns, skippedRows: lines.length - 1, filteredByName: nameColIndex >= 0, filteredOutRows: 0 };
+    return { records: [], error: "Could not match any columns. Make sure the CSV has a header row with columns like 'Date', 'Weight', 'Body Fat', etc." };
   }
 
   const records: HealthRecord[] = [];
-  let skippedRows = 0;
-  let filteredOutRows = 0;
 
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(delimiter);
@@ -218,10 +149,7 @@ function parseCSV(text: string): ParseResult {
     // If there's a name column, skip rows that don't match the target user
     if (nameColIndex >= 0) {
       const nameVal = cols[nameColIndex] ?? "";
-      if (!isTargetUser(nameVal)) {
-        filteredOutRows++;
-        continue;
-      }
+      if (!isTargetUser(nameVal)) continue;
     }
 
     const record: Partial<HealthRecord> = {};
@@ -241,10 +169,7 @@ function parseCSV(text: string): ParseResult {
       }
     }
 
-    if (!record.time) {
-      skippedRows++;
-      continue;
-    }
+    if (!record.time) continue;
 
     // Fill missing numeric fields with 0
     for (const k of NUMERIC_KEYS) {
@@ -254,7 +179,11 @@ function parseCSV(text: string): ParseResult {
     records.push(record as HealthRecord);
   }
 
-  return { records, mappedColumns, unmappedColumns, skippedRows, filteredByName: nameColIndex >= 0, filteredOutRows };
+  if (records.length === 0) {
+    return { records: [], error: "No valid rows found. Make sure dates are parseable (e.g. 2024-01-14 or 01/14/2024)." };
+  }
+
+  return { records };
 }
 
 interface CSVUploaderProps {
@@ -281,16 +210,12 @@ export function CSVUploader({ onUpload }: CSVUploaderProps) {
         setError("File is empty.");
         return;
       }
-      const parsed = parseCSV(text);
-      if (parsed.records.length === 0) {
-        setError(
-          parsed.mappedColumns.length === 0
-            ? "Could not match any columns. Make sure the CSV has a header row with columns like 'Date', 'Weight', 'Body Fat', etc."
-            : "No valid rows found. Make sure dates are parseable (e.g. 2024-01-14 or 01/14/2024)."
-        );
+      const result = parseCSV(text);
+      if (result.error) {
+        setError(result.error);
         return;
       }
-      onUpload(parsed.records);
+      onUpload(result.records);
     };
     reader.readAsText(file);
   }, [onUpload]);
