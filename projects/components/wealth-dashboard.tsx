@@ -254,6 +254,7 @@ export function WealthDashboard() {
   const [dbLoaded, setDbLoaded] = useState(false);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState("");
+  const [editName, setEditName] = useState("");
   const [resetStep, setResetStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
 
   useEffect(() => {
@@ -396,24 +397,50 @@ export function WealthDashboard() {
   }, [resetStep]);
 
   const handleUpdateCategory = useCallback(
-    (category: string, amount: number) => {
-      fetch("/api/wealth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ category, amount }),
-      })
-        .then((r) => r.json())
-        .then((res) => {
-          if (res.entry) {
-            setEntries((prev) => [...prev, res.entry]);
+    (originalCategory: string, newName: string, amount: number) => {
+      const nameChanged = newName !== originalCategory;
+      const doUpdate = async () => {
+        try {
+          // Rename first if name changed
+          if (nameChanged) {
+            const renameRes = await fetch("/api/wealth", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              body: JSON.stringify({ oldCategory: originalCategory, newCategory: newName }),
+            });
+            if (!renameRes.ok) throw new Error("Rename failed");
+            // Update all local entries with old name
+            setEntries((prev) =>
+              prev.map((e) =>
+                e.category === originalCategory ? { ...e, category: newName } : e
+              )
+            );
+            if (selectedCategory === originalCategory) {
+              setSelectedCategory(newName);
+            }
           }
-          setEditingCategory(null);
-          setEditAmount("");
-        })
-        .catch((err) => console.error("Failed to update wealth entry:", err));
+          // Then add the new amount entry
+          const res = await fetch("/api/wealth", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            body: JSON.stringify({ category: newName, amount }),
+          });
+          const data = await res.json();
+          if (data.entry) {
+            setEntries((prev) => [...prev, data.entry]);
+          }
+        } catch (err) {
+          console.error("Failed to update wealth entry:", err);
+        }
+        setEditingCategory(null);
+        setEditAmount("");
+        setEditName("");
+      };
+      doUpdate();
     },
-    []
+    [selectedCategory]
   );
 
   const currentColor = selectedCategory ? categoryColors[selectedCategory] : "#60a5fa";
@@ -621,6 +648,7 @@ export function WealthDashboard() {
                 onDoubleClick={(e) => {
                   e.preventDefault();
                   setEditingCategory(isEditing ? null : cat);
+                  setEditName(cat);
                   setEditAmount(String(latestByCategory[cat] ?? 0));
                 }}
                 style={{
@@ -638,79 +666,113 @@ export function WealthDashboard() {
                   borderLeft: isActive || isEditing ? `3px solid ${color}` : `1px solid ${isActive ? color + "60" : "var(--bio-border)"}`,
                 }}
               >
-                <span
-                  style={{
-                    fontSize: "0.7rem",
-                    color: isActive || isEditing ? color : "var(--muted)",
-                    fontWeight: 500,
-                    textTransform: "uppercase",
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {cat}
-                </span>
                 {isEditing ? (
                   <form
                     onSubmit={(e) => {
                       e.preventDefault();
                       e.stopPropagation();
                       const num = parseFloat(editAmount);
-                      if (!isNaN(num)) handleUpdateCategory(cat, num);
+                      const name = editName.trim();
+                      if (!isNaN(num) && name) handleUpdateCategory(cat, name, num);
                     }}
                     onClick={(e) => e.stopPropagation()}
-                    style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}
+                    style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}
                   >
                     <input
-                      type="number"
-                      value={editAmount}
-                      onChange={(e) => setEditAmount(e.target.value)}
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
                       autoFocus
-                      step="any"
+                      placeholder="Name"
                       style={{
-                        width: "80px",
+                        width: "100%",
                         padding: "0.2rem 0.4rem",
                         borderRadius: 6,
                         border: `1px solid ${color}60`,
                         background: "var(--bio-bg)",
-                        color: "var(--fg)",
-                        fontSize: "0.85rem",
+                        color,
+                        fontSize: "0.7rem",
+                        fontWeight: 500,
                         fontFamily: "inherit",
                         outline: "none",
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
                       }}
                       onKeyDown={(e) => {
                         if (e.key === "Escape") {
                           setEditingCategory(null);
+                          setEditName("");
                           setEditAmount("");
                         }
                       }}
                     />
-                    <button
-                      type="submit"
-                      style={{
-                        padding: "0.2rem 0.4rem",
-                        borderRadius: 6,
-                        border: `1px solid ${color}60`,
-                        background: color + "20",
-                        color,
-                        fontSize: "0.7rem",
-                        fontWeight: 600,
-                        cursor: "pointer",
-                        fontFamily: "inherit",
-                      }}
-                    >
-                      Save
-                    </button>
+                    <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
+                      <input
+                        type="number"
+                        value={editAmount}
+                        onChange={(e) => setEditAmount(e.target.value)}
+                        step="any"
+                        placeholder="Amount"
+                        style={{
+                          width: "80px",
+                          padding: "0.2rem 0.4rem",
+                          borderRadius: 6,
+                          border: `1px solid ${color}60`,
+                          background: "var(--bio-bg)",
+                          color: "var(--fg)",
+                          fontSize: "0.85rem",
+                          fontFamily: "inherit",
+                          outline: "none",
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Escape") {
+                            setEditingCategory(null);
+                            setEditName("");
+                            setEditAmount("");
+                          }
+                        }}
+                      />
+                      <button
+                        type="submit"
+                        style={{
+                          padding: "0.2rem 0.4rem",
+                          borderRadius: 6,
+                          border: `1px solid ${color}60`,
+                          background: color + "20",
+                          color,
+                          fontSize: "0.7rem",
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        Save
+                      </button>
+                    </div>
                   </form>
                 ) : (
-                  <span
-                    style={{
-                      fontSize: "1.1rem",
-                      fontWeight: 600,
-                      color: isActive ? "#e8e8e8" : "var(--fg)",
-                    }}
-                  >
-                    {fmt.format(latestByCategory[cat] ?? 0)}
-                  </span>
+                  <>
+                    <span
+                      style={{
+                        fontSize: "0.7rem",
+                        color: isActive ? color : "var(--muted)",
+                        fontWeight: 500,
+                        textTransform: "uppercase",
+                        letterSpacing: "0.04em",
+                      }}
+                    >
+                      {cat}
+                    </span>
+                    <span
+                      style={{
+                        fontSize: "1.1rem",
+                        fontWeight: 600,
+                        color: isActive ? "#e8e8e8" : "var(--fg)",
+                      }}
+                    >
+                      {fmt.format(latestByCategory[cat] ?? 0)}
+                    </span>
+                  </>
                 )}
               </button>
             );
