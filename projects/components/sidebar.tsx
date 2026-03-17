@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
+import { signOut } from "next-auth/react";
 import { projects } from "@/data/projects";
 
 export function Sidebar() {
@@ -164,6 +165,36 @@ export function Sidebar() {
             );
           })}
         </nav>
+
+        <div style={{ marginTop: "auto", padding: "0 1.25rem" }}>
+          <button
+            onClick={() => signOut({ callbackUrl: "/login" })}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "0.5rem",
+              width: "100%",
+              padding: "0.6rem 0",
+              fontSize: "0.85rem",
+              fontWeight: 400,
+              fontFamily: "inherit",
+              color: "var(--muted)",
+              background: "transparent",
+              border: "none",
+              cursor: "pointer",
+              transition: "color 0.15s ease",
+            }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "var(--fg)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+              <polyline points="16 17 21 12 16 7" />
+              <line x1="21" y1="12" x2="9" y2="12" />
+            </svg>
+            Sign out
+          </button>
+        </div>
       </aside>
     </>
   );
