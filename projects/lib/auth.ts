@@ -1,89 +1,46 @@
-import { cookies } from "next/headers";
-import crypto from "crypto";
+import NextAuth from "next-auth";
+import Google from "next-auth/providers/google";
 
-export const COOKIE_NAME = "session";
-export const SESSION_MAX_AGE = 7 * 24 * 60 * 60; // 7 days in seconds
-
-function getSessionSecret(): string {
-  const secret = process.env.SESSION_SECRET;
-  if (!secret || secret.length < 32) {
-    throw new Error("SESSION_SECRET must be set and at least 32 characters");
+function getAllowedEmails(): string[] {
+  const raw = process.env.ALLOWED_EMAILS;
+  if (!raw) {
+    throw new Error("ALLOWED_EMAILS must be set (comma-separated list of allowed Google emails)");
   }
-  return secret;
+  return raw.split(",").map((e) => e.trim().toLowerCase());
 }
 
-function getSitePassword(): string {
-  const password = process.env.SITE_PASSWORD;
-  if (!password) {
-    throw new Error("SITE_PASSWORD must be set");
-  }
-  return password;
-}
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  providers: [
+    Google({
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    }),
+  ],
+  pages: {
+    signIn: "/login",
+    error: "/login",
+  },
+  callbacks: {
+    async signIn({ profile }) {
+      const email = profile?.email?.toLowerCase();
+      if (!email) return false;
+      const allowed = getAllowedEmails();
+      return allowed.includes(email);
+    },
+    async authorized({ auth: session, request }) {
+      const isLoggedIn = !!session?.user;
+      const { pathname } = request.nextUrl;
+      // Allow public paths
+      if (pathname.startsWith("/login") || pathname.startsWith("/api/auth")) {
+        return true;
+      }
+      // Block all other routes if not authenticated
+      return isLoggedIn;
+    },
+    async session({ session }) {
+      return session;
+    },
+  },
+});
 
-/** Timing-safe password comparison to prevent timing attacks */
-export function verifyPassword(input: string): boolean {
-  const expected = getSitePassword();
-  const inputBuf = Buffer.from(input);
-  const expectedBuf = Buffer.from(expected);
-
-  if (inputBuf.length !== expectedBuf.length) {
-    // Compare against expected anyway to avoid leaking length info via timing
-    crypto.timingSafeEqual(expectedBuf, expectedBuf);
-    return false;
-  }
-
-  return crypto.timingSafeEqual(inputBuf, expectedBuf);
-}
-
-/** Create a signed session cookie value: timestamp.signature */
-export function createSessionValue(): string {
-  const timestamp = Math.floor(Date.now() / 1000).toString();
-  const signature = crypto
-    .createHmac("sha256", getSessionSecret())
-    .update(timestamp)
-    .digest("hex");
-  return `${timestamp}.${signature}`;
-}
-
-/** Verify a session cookie value (Node.js runtime) */
-export function verifySessionValue(value: string): boolean {
-  const parts = value.split(".");
-  if (parts.length !== 2) return false;
-
-  const [timestamp, signature] = parts;
-  const ts = parseInt(timestamp, 10);
-  if (isNaN(ts)) return false;
-
-  const now = Math.floor(Date.now() / 1000);
-  if (now - ts > SESSION_MAX_AGE) return false;
-
-  const expectedSignature = crypto
-    .createHmac("sha256", getSessionSecret())
-    .update(timestamp)
-    .digest("hex");
-
-  const sigBuf = Buffer.from(signature);
-  const expectedBuf = Buffer.from(expectedSignature);
-
-  if (sigBuf.length !== expectedBuf.length) return false;
-
-  return crypto.timingSafeEqual(sigBuf, expectedBuf);
-}
-
-/** Set the session cookie on a Response */
-export function setSessionCookie(response: Response): Response {
-  const value = createSessionValue();
-  response.headers.append(
-    "Set-Cookie",
-    `${COOKIE_NAME}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${SESSION_MAX_AGE}`
-  );
-  return response;
-}
-
-/** Check if the current request has a valid session cookie */
-export async function isAuthenticated(): Promise<boolean> {
-  const cookieStore = await cookies();
-  const session = cookieStore.get(COOKIE_NAME);
-  if (!session?.value) return false;
-  return verifySessionValue(session.value);
-}
+export const COOKIE_NAME = "session"; // kept for compatibility

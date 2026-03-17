@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { ensureTable, getAllRecords, upsertRecords, deleteAllRecords } from "@/lib/db";
 import { HealthRecord } from "@/data/health-data";
 
+const UNAUTHORIZED = NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
 // GET /api/health — fetch all records from DB
 export async function GET() {
+  const session = await auth();
+  if (!session?.user) return UNAUTHORIZED;
+
   try {
     await ensureTable();
     const records = await getAllRecords();
@@ -16,6 +22,9 @@ export async function GET() {
 
 // POST /api/health — upload records (replaces all data)
 export async function POST(request: NextRequest) {
+  const session = await auth();
+  if (!session?.user) return UNAUTHORIZED;
+
   try {
     const body = await request.json();
     const records: HealthRecord[] = body.records;
@@ -37,6 +46,9 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/health — clear all records
 export async function DELETE() {
+  const session = await auth();
+  if (!session?.user) return UNAUTHORIZED;
+
   try {
     await ensureTable();
     await deleteAllRecords();
