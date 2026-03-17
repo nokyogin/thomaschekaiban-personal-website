@@ -366,6 +366,31 @@ export function HealthDashboard() {
 
   return (
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100 }}>
+      {/* Top loading bar */}
+      {!dbLoaded && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 3,
+            zIndex: 9999,
+            background: "rgba(96, 165, 250, 0.2)",
+            overflow: "hidden",
+          }}
+        >
+          <div
+            style={{
+              height: "100%",
+              width: "40%",
+              background: "#60a5fa",
+              borderRadius: 2,
+              animation: "loadingBar 1s ease-in-out infinite",
+            }}
+          />
+        </div>
+      )}
       {/* Header */}
       <div
         style={{
