@@ -516,17 +516,17 @@ export function HealthDashboard() {
               onClick={() => setSelectedMetric(m.key)}
               style={{
                 background: isActive ? m.color + "15" : "var(--bio-bg)",
-                border: `1px solid ${isActive ? m.color + "60" : "var(--bio-border)"}`,
+                border: `1.5px solid ${isActive ? m.color + "60" : "var(--bio-border)"}`,
                 borderRadius: 10,
                 padding: "0.65rem 0.75rem",
                 cursor: "pointer",
                 textAlign: "left",
                 fontFamily: "inherit",
-                transition: "all 0.15s",
+                transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
                 display: "flex",
                 flexDirection: "column",
                 gap: "0.15rem",
-                borderLeft: isActive ? `3px solid ${m.color}` : `1px solid ${isActive ? m.color + "60" : "var(--bio-border)"}`,
+                boxShadow: isActive ? `inset 3px 0 0 ${m.color}` : "none",
                 position: "relative",
               }}
             >

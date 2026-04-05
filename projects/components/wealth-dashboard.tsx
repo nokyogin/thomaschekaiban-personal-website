@@ -190,34 +190,36 @@ function AddEntryForm({
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
-      {/* Category chips */}
-      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
-        {categories.map((cat) => (
-          <button
-            key={cat}
-            type="button"
-            onClick={() => {
-              setIsCreatingNew(false);
-              setNewCatName("");
-              setSelectedCat(selectedCat === cat ? null : cat);
-              setAmount("");
-            }}
-            style={{
-              padding: "0.35rem 0.75rem",
-              borderRadius: 100,
-              border: `1px solid ${selectedCat === cat ? "#60a5fa" : "var(--bio-border)"}`,
-              background: selectedCat === cat ? "#60a5fa20" : "transparent",
-              color: selectedCat === cat ? "#60a5fa" : "var(--muted)",
-              fontSize: "0.8rem",
-              fontWeight: 500,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              transition: "all 0.15s",
-            }}
-          >
-            {cat}
-          </button>
-        ))}
+      {/* Category chips + New button */}
+      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem", flex: 1 }}>
+          {categories.map((cat) => (
+            <button
+              key={cat}
+              type="button"
+              onClick={() => {
+                setIsCreatingNew(false);
+                setNewCatName("");
+                setSelectedCat(selectedCat === cat ? null : cat);
+                setAmount("");
+              }}
+              style={{
+                padding: "0.35rem 0.75rem",
+                borderRadius: 100,
+                border: `1px solid ${selectedCat === cat ? "#60a5fa" : "#333"}`,
+                background: selectedCat === cat ? "#60a5fa20" : "transparent",
+                color: selectedCat === cat ? "#60a5fa" : "#999",
+                fontSize: "0.8rem",
+                fontWeight: 500,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "background 0.2s ease, border-color 0.2s ease, color 0.2s ease",
+              }}
+            >
+              {cat}
+            </button>
+          ))}
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -227,11 +229,11 @@ function AddEntryForm({
             setNewCatName("");
           }}
           style={{
-            padding: "0.35rem 0.75rem",
-            borderRadius: 100,
-            border: `1px solid ${isCreatingNew ? "#34d399" : "var(--bio-border)"}`,
+            padding: "0.35rem 0.6rem",
+            borderRadius: 8,
+            border: `1px solid ${isCreatingNew ? "#34d399" : "#333"}`,
             background: isCreatingNew ? "#34d39920" : "transparent",
-            color: isCreatingNew ? "#34d399" : "var(--muted)",
+            color: isCreatingNew ? "#34d399" : "#999",
             fontSize: "0.8rem",
             fontWeight: 500,
             cursor: "pointer",
@@ -240,6 +242,7 @@ function AddEntryForm({
             display: "flex",
             alignItems: "center",
             gap: "0.25rem",
+            flexShrink: 0,
           }}
         >
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -265,7 +268,7 @@ function AddEntryForm({
             padding: "0.5rem 0.75rem",
             borderRadius: 8,
             border: "1px solid #34d39960",
-            background: "var(--bio-bg)",
+            background: "#0a0a0a",
             color: "var(--fg)",
             fontSize: "0.85rem",
             fontFamily: "inherit",
@@ -284,11 +287,16 @@ function AddEntryForm({
             alignItems: "center",
           }}
         >
+          <style dangerouslySetInnerHTML={{ __html: `
+            input[type=number]::-webkit-inner-spin-button,
+            input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+            input[type=number] { -moz-appearance: textfield; }
+          ` }} />
           <input
             type="number"
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            placeholder={`Amount for ${activeCat || "..."}`}
+            placeholder={`New amount for ${activeCat || "..."}`}
             step="any"
             autoFocus={!isCreatingNew}
             onKeyDown={(e) => {
@@ -298,8 +306,8 @@ function AddEntryForm({
               flex: 1,
               padding: "0.5rem 0.75rem",
               borderRadius: 8,
-              border: "1px solid var(--bio-border)",
-              background: "var(--bio-bg)",
+              border: "1px solid #333",
+              background: "#0a0a0a",
               color: "var(--fg)",
               fontSize: "0.85rem",
               fontFamily: "inherit",
@@ -331,9 +339,9 @@ function AddEntryForm({
             style={{
               padding: "0.5rem",
               borderRadius: 8,
-              border: "1px solid var(--bio-border)",
+              border: "1px solid #333",
               background: "transparent",
-              color: "var(--muted)",
+              color: "#888",
               fontSize: "0.85rem",
               cursor: "pointer",
               fontFamily: "inherit",
@@ -359,12 +367,12 @@ export function WealthDashboard() {
   const [timeRange, setTimeRange] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const [dbLoaded, setDbLoaded] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<string | null>(null);
-  const [editAmount, setEditAmount] = useState("");
-  const [editName, setEditName] = useState("");
-  const [resetStep, setResetStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
+  const [resetStep, setResetStep] = useState(0);
   const [amountsHidden, setAmountsHidden] = useState(true);
   const [showUnhideConfirm, setShowUnhideConfirm] = useState(false);
+  const [categoryOrder, setCategoryOrder] = useState<string[]>([]);
+  const [draggedCat, setDraggedCat] = useState<string | null>(null);
+  const [dragOverCat, setDragOverCat] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/wealth", { credentials: "same-origin" })
@@ -384,10 +392,21 @@ export function WealthDashboard() {
       });
   }, []);
 
-  const categories = useMemo(() => {
+  const categoriesRaw = useMemo(() => {
     const set = new Set(entries.map((e) => e.category));
     return Array.from(set).sort();
   }, [entries]);
+
+  // Sync categoryOrder when new categories appear
+  useEffect(() => {
+    setCategoryOrder((prev) => {
+      const existing = prev.filter((c) => categoriesRaw.includes(c));
+      const newCats = categoriesRaw.filter((c) => !prev.includes(c));
+      return [...existing, ...newCats];
+    });
+  }, [categoriesRaw]);
+
+  const categories = categoryOrder;
 
   const categoryColors = useMemo(() => {
     const map: Record<string, string> = {};
@@ -492,7 +511,6 @@ export function WealthDashboard() {
     // Step 2: actually delete
     setEntries([]);
     setSelectedCategory(null);
-    setEditingCategory(null);
     setResetStep(0);
     fetch("/api/wealth", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
   }, [resetStep]);
@@ -504,52 +522,17 @@ export function WealthDashboard() {
     return () => clearTimeout(t);
   }, [resetStep]);
 
-  const handleUpdateCategory = useCallback(
-    (originalCategory: string, newName: string, amount: number) => {
-      const nameChanged = newName !== originalCategory;
-      const doUpdate = async () => {
-        try {
-          // Rename first if name changed
-          if (nameChanged) {
-            const renameRes = await fetch("/api/wealth", {
-              method: "PATCH",
-              headers: { "Content-Type": "application/json" },
-              credentials: "same-origin",
-              body: JSON.stringify({ oldCategory: originalCategory, newCategory: newName }),
-            });
-            if (!renameRes.ok) throw new Error("Rename failed");
-            // Update all local entries with old name
-            setEntries((prev) =>
-              prev.map((e) =>
-                e.category === originalCategory ? { ...e, category: newName } : e
-              )
-            );
-            if (selectedCategory === originalCategory) {
-              setSelectedCategory(newName);
-            }
-          }
-          // Then add the new amount entry
-          const res = await fetch("/api/wealth", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            body: JSON.stringify({ category: newName, amount }),
-          });
-          const data = await res.json();
-          if (data.entry) {
-            setEntries((prev) => [...prev, data.entry]);
-          }
-        } catch (err) {
-          console.error("Failed to update wealth entry:", err);
-        }
-        setEditingCategory(null);
-        setEditAmount("");
-        setEditName("");
-      };
-      doUpdate();
-    },
-    [selectedCategory]
-  );
+  const handleReorder = useCallback((fromCat: string, toCat: string) => {
+    setCategoryOrder((prev) => {
+      const arr = [...prev];
+      const fromIdx = arr.indexOf(fromCat);
+      const toIdx = arr.indexOf(toCat);
+      if (fromIdx === -1 || toIdx === -1) return prev;
+      arr.splice(fromIdx, 1);
+      arr.splice(toIdx, 0, fromCat);
+      return arr;
+    });
+  }, []);
 
   const maskAmount = (value: number) => amountsHidden ? "••••••" : fmt.format(value);
   const maskAmountFull = (value: number) => amountsHidden ? "••••••" : fmtFull.format(value);
@@ -694,21 +677,23 @@ export function WealthDashboard() {
         </div>
       </div>
 
-      {/* Add entry — category-first flow */}
+      {/* Update Amounts — category-first flow */}
       {hasData && (
         <div
           style={{
             marginBottom: "1rem",
             padding: "1rem",
-            background: "var(--bio-bg)",
-            border: "1px solid var(--bio-border)",
+            background: "#111",
+            border: "1px solid #222",
             borderRadius: 12,
             opacity: 0,
             animation: "rise 0.4s ease-out forwards",
           }}
         >
-          <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "0.5rem" }}>
-            Add entry
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
+            <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+              Update Amounts
+            </div>
           </div>
           <AddEntryForm categories={categories} onAdd={handleAdd} />
         </div>
@@ -738,195 +723,118 @@ export function WealthDashboard() {
       {hasData && (
         <div
           style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+            display: "flex",
             gap: "0.5rem",
             marginBottom: "0.75rem",
             opacity: 0,
             animation: "rise 0.6s ease-out 0.05s forwards",
+            overflowX: "auto",
           }}
         >
-          {/* All / Total card */}
+          {/* All / Total card — non-draggable, emphasized */}
           <button
             onClick={() => setSelectedCategory(null)}
             style={{
-              background: selectedCategory === null ? "#60a5fa15" : "var(--bio-bg)",
-              border: `1px solid ${selectedCategory === null ? "#60a5fa60" : "var(--bio-border)"}`,
+              background: selectedCategory === null ? "#60a5fa18" : "#111",
+              border: `1.5px solid ${selectedCategory === null ? "#60a5fa" : "#222"}`,
               borderRadius: 10,
-              padding: "0.65rem 0.75rem",
+              padding: "0.65rem 0.85rem",
               cursor: "pointer",
               textAlign: "left",
               fontFamily: "inherit",
-              transition: "all 0.15s",
+              transition: "background 0.2s ease, border-color 0.2s ease",
               display: "flex",
               flexDirection: "column",
               gap: "0.15rem",
-              borderLeft: selectedCategory === null ? "3px solid #60a5fa" : "1px solid var(--bio-border)",
+              flexShrink: 0,
+              minWidth: 130,
+              flex: 1,
             }}
           >
             <span
               style={{
                 fontSize: "0.7rem",
-                color: selectedCategory === null ? "#60a5fa" : "var(--muted)",
-                fontWeight: 500,
+                color: selectedCategory === null ? "#60a5fa" : "#888",
+                fontWeight: 600,
                 textTransform: "uppercase",
                 letterSpacing: "0.04em",
+                transition: "color 0.2s ease",
               }}
             >
               Total
             </span>
             <span
               style={{
-                fontSize: "1.1rem",
-                fontWeight: 600,
+                fontSize: "1.15rem",
+                fontWeight: 700,
                 color: selectedCategory === null ? "#e8e8e8" : "var(--fg)",
+                transition: "color 0.2s ease",
               }}
             >
               {maskAmount(totalWealth)}
             </span>
           </button>
 
-          {/* Per-category cards */}
+          {/* Per-category cards — draggable */}
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
-            const isEditing = editingCategory === cat;
             const color = categoryColors[cat];
+            const isDragging = draggedCat === cat;
+            const isDragOver = dragOverCat === cat;
             return (
               <button
                 key={cat}
-                onClick={() => {
-                  if (isEditing) return;
-                  setSelectedCategory(isActive ? null : cat);
-                }}
-                onDoubleClick={(e) => {
+                draggable
+                onDragStart={() => setDraggedCat(cat)}
+                onDragEnd={() => { setDraggedCat(null); setDragOverCat(null); }}
+                onDragOver={(e) => { e.preventDefault(); setDragOverCat(cat); }}
+                onDrop={(e) => {
                   e.preventDefault();
-                  setEditingCategory(isEditing ? null : cat);
-                  setEditName(cat);
-                  setEditAmount(String(latestByCategory[cat] ?? 0));
+                  if (draggedCat && draggedCat !== cat) handleReorder(draggedCat, cat);
+                  setDraggedCat(null);
+                  setDragOverCat(null);
                 }}
+                onClick={() => setSelectedCategory(isActive ? null : cat)}
                 style={{
-                  background: isEditing ? color + "20" : isActive ? color + "15" : "var(--bio-bg)",
-                  border: `1px solid ${isActive || isEditing ? color + "60" : "var(--bio-border)"}`,
+                  background: isActive ? color + "15" : "var(--bio-bg)",
+                  border: `1.5px solid ${isActive ? color : isDragOver ? color + "80" : "var(--bio-border)"}`,
                   borderRadius: 10,
                   padding: "0.65rem 0.75rem",
-                  cursor: "pointer",
+                  cursor: isDragging ? "grabbing" : "pointer",
                   textAlign: "left",
                   fontFamily: "inherit",
-                  transition: "all 0.15s",
+                  transition: "background 0.2s ease, border-color 0.2s ease",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.15rem",
-                  borderLeft: isActive || isEditing ? `3px solid ${color}` : `1px solid ${isActive ? color + "60" : "var(--bio-border)"}`,
+                  opacity: isDragging ? 0.5 : 1,
+                  flexShrink: 0,
+                  minWidth: 130,
+                  flex: 1,
                 }}
               >
-                {isEditing ? (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      const num = parseFloat(editAmount);
-                      const name = editName.trim();
-                      if (!isNaN(num) && name) handleUpdateCategory(cat, name, num);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    style={{ display: "flex", flexDirection: "column", gap: "0.3rem" }}
-                  >
-                    <input
-                      type="text"
-                      value={editName}
-                      onChange={(e) => setEditName(e.target.value)}
-                      autoFocus
-                      placeholder="Name"
-                      style={{
-                        width: "100%",
-                        padding: "0.2rem 0.4rem",
-                        borderRadius: 6,
-                        border: `1px solid ${color}60`,
-                        background: "var(--bio-bg)",
-                        color,
-                        fontSize: "0.7rem",
-                        fontWeight: 500,
-                        fontFamily: "inherit",
-                        outline: "none",
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                      }}
-                      onKeyDown={(e) => {
-                        if (e.key === "Escape") {
-                          setEditingCategory(null);
-                          setEditName("");
-                          setEditAmount("");
-                        }
-                      }}
-                    />
-                    <div style={{ display: "flex", gap: "0.3rem", alignItems: "center" }}>
-                      <input
-                        type="number"
-                        value={editAmount}
-                        onChange={(e) => setEditAmount(e.target.value)}
-                        step="any"
-                        placeholder="Amount"
-                        style={{
-                          width: "80px",
-                          padding: "0.2rem 0.4rem",
-                          borderRadius: 6,
-                          border: `1px solid ${color}60`,
-                          background: "var(--bio-bg)",
-                          color: "var(--fg)",
-                          fontSize: "0.85rem",
-                          fontFamily: "inherit",
-                          outline: "none",
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === "Escape") {
-                            setEditingCategory(null);
-                            setEditName("");
-                            setEditAmount("");
-                          }
-                        }}
-                      />
-                      <button
-                        type="submit"
-                        style={{
-                          padding: "0.2rem 0.4rem",
-                          borderRadius: 6,
-                          border: `1px solid ${color}60`,
-                          background: color + "20",
-                          color,
-                          fontSize: "0.7rem",
-                          fontWeight: 600,
-                          cursor: "pointer",
-                          fontFamily: "inherit",
-                        }}
-                      >
-                        Save
-                      </button>
-                    </div>
-                  </form>
-                ) : (
-                  <>
-                    <span
-                      style={{
-                        fontSize: "0.7rem",
-                        color: isActive ? color : "var(--muted)",
-                        fontWeight: 500,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                      }}
-                    >
-                      {cat}
-                    </span>
-                    <span
-                      style={{
-                        fontSize: "1.1rem",
-                        fontWeight: 600,
-                        color: isActive ? "#e8e8e8" : "var(--fg)",
-                      }}
-                    >
-                      {maskAmount(latestByCategory[cat] ?? 0)}
-                    </span>
-                  </>
-                )}
+                <span
+                  style={{
+                    fontSize: "0.7rem",
+                    color: isActive ? color : "var(--muted)",
+                    fontWeight: 500,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.04em",
+                    transition: "color 0.2s ease",
+                  }}
+                >
+                  {cat}
+                </span>
+                <span
+                  style={{
+                    fontSize: "1.1rem",
+                    fontWeight: 600,
+                    color: isActive ? "#e8e8e8" : "var(--fg)",
+                    transition: "color 0.2s ease",
+                  }}
+                >
+                  {maskAmount(latestByCategory[cat] ?? 0)}
+                </span>
               </button>
             );
           })}
