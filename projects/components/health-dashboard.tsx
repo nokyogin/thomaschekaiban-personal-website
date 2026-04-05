@@ -404,91 +404,33 @@ export function HealthDashboard() {
             fontSize: "clamp(1.5rem, 4vw, 2rem)",
             fontWeight: 600,
             letterSpacing: "-0.02em",
-            marginBottom: "0.25rem",
           }}
         >
           Health Dashboard
         </h1>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-          <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: 0 }}>
-            {getUserAge()} y/o &middot; {userProfile.heightCm} cm
-            {oldest && latest && (
-              <> &middot; {formatDateLong(oldest.time)} to {formatDateLong(latest.time)} &middot; {data.length} measurements</>
-            )}
-            {!hasData && " \u00b7 No data yet"}
-          </p>
-          {hasCustomData && (
-            <button
-              onClick={() => setShowUploader(!showUploader)}
-              title="Upload CSV"
-              style={{
-                padding: "0.3rem",
-                borderRadius: 8,
-                border: "1px solid var(--bio-border)",
-                background: showUploader ? "#60a5fa20" : "transparent",
-                color: showUploader ? "#60a5fa" : "var(--muted)",
-                fontSize: "0.85rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 28,
-                height: 28,
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-            </button>
-          )}
-          {hasCustomData && (
-            <button
-              onClick={handleReset}
-              title={resetStep === 0 ? (lastUploadDate ? `Last upload: ${lastUploadDate}` : "Clear all data") : resetStep === 1 ? "Click again to confirm" : "Click to permanently delete"}
-              style={{
-                padding: resetStep > 0 ? "0.3rem 0.6rem" : "0.3rem",
-                borderRadius: 8,
-                border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
-                background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
-                color: "#ef4444",
-                fontSize: "0.75rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.3rem",
-                height: 28,
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="1 4 1 10 7 10" />
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-              {resetStep === 1 && "Are you sure?"}
-              {resetStep === 2 && "Really delete all?"}
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* CSV Uploader (when data exists and user clicks upload icon) */}
-      {showUploader && hasData && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            opacity: 0,
-            animation: "rise 0.4s ease-out forwards",
-          }}
-        >
-          <CSVUploader onUpload={handleUpload} />
+      {/* Loading skeleton */}
+      {!dbLoaded && (
+        <div style={{ opacity: 0, animation: "rise 0.4s ease-out 0.1s forwards" }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes shimmer {
+              0% { background-position: -400px 0; }
+              100% { background-position: 400px 0; }
+            }
+            .skeleton {
+              background: linear-gradient(90deg, #141414 25%, #1e1e1e 50%, #141414 75%);
+              background-size: 800px 100%;
+              animation: shimmer 1.5s ease-in-out infinite;
+              border-radius: 10px;
+            }
+          ` }} />
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "0.5rem", marginBottom: "0.75rem" }}>
+            {[1,2,3,4,5,6].map((i) => (
+              <div key={i} className="skeleton" style={{ height: 62 }} />
+            ))}
+          </div>
+          <div className="skeleton" style={{ height: 300, marginBottom: "1rem" }} />
         </div>
       )}
 
@@ -499,7 +441,7 @@ export function HealthDashboard() {
           display: "grid",
           gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
           gap: "0.5rem",
-          marginBottom: "0.75rem",
+          marginBottom: "0.5rem",
           opacity: 0,
           animation: "rise 0.6s ease-out 0.05s forwards",
         }}
@@ -551,6 +493,7 @@ export function HealthDashboard() {
                   fontWeight: 500,
                   textTransform: "uppercase",
                   letterSpacing: "0.04em",
+                  transition: "color 0.2s ease",
                 }}
               >
                 {m.label}
@@ -560,6 +503,7 @@ export function HealthDashboard() {
                   fontSize: "1.1rem",
                   fontWeight: 600,
                   color: isActive ? "#e8e8e8" : "var(--fg)",
+                  transition: "color 0.2s ease",
                 }}
               >
                 {m.decimals === 0 ? val : val.toFixed(m.decimals)}
@@ -571,6 +515,93 @@ export function HealthDashboard() {
           );
         })}
       </div>
+      )}
+
+      {/* Toolbar under tabs: upload CSV, reset */}
+      {hasData && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            marginBottom: "1rem",
+            opacity: 0,
+            animation: "rise 0.4s ease-out 0.08s forwards",
+          }}
+        >
+          {hasCustomData && (
+            <button
+              onClick={() => setShowUploader(!showUploader)}
+              title="Upload CSV"
+              style={{
+                padding: "0.3rem 0.6rem",
+                borderRadius: 8,
+                border: `1px solid ${showUploader ? "#60a5fa60" : "var(--bio-border)"}`,
+                background: showUploader ? "#60a5fa20" : "transparent",
+                color: showUploader ? "#60a5fa" : "var(--muted)",
+                fontSize: "0.75rem",
+                lineHeight: 1,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                height: 28,
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              Upload CSV
+            </button>
+          )}
+          {hasCustomData && (
+            <button
+              onClick={handleReset}
+              title={resetStep === 0 ? (lastUploadDate ? `Last upload: ${lastUploadDate}` : "Clear all data") : resetStep === 1 ? "Click again to confirm" : "Click to permanently delete"}
+              style={{
+                padding: "0.3rem 0.6rem",
+                borderRadius: 8,
+                border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
+                background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
+                color: "#ef4444",
+                fontSize: "0.75rem",
+                lineHeight: 1,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                transition: "all 0.15s",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.3rem",
+                height: 28,
+              }}
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+              {resetStep === 0 && "Reset"}
+              {resetStep === 1 && "Are you sure?"}
+              {resetStep === 2 && "Really delete all?"}
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* CSV Uploader (when toggled) */}
+      {showUploader && hasData && (
+        <div
+          style={{
+            marginBottom: "1rem",
+            opacity: 0,
+            animation: "rise 0.4s ease-out forwards",
+          }}
+        >
+          <CSVUploader onUpload={handleUpload} />
+        </div>
       )}
 
       {/* Empty state with inline uploader */}
