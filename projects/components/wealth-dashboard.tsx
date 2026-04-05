@@ -161,89 +161,195 @@ function AddEntryForm({
   categories: string[];
   onAdd: (category: string, amount: number) => void;
 }) {
-  const [category, setCategory] = useState("");
+  const [selectedCat, setSelectedCat] = useState<string | null>(null);
+  const [newCatName, setNewCatName] = useState("");
+  const [isCreatingNew, setIsCreatingNew] = useState(false);
   const [amount, setAmount] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const cat = category.trim();
+    const cat = isCreatingNew ? newCatName.trim() : selectedCat;
     const num = parseFloat(amount);
     if (!cat || isNaN(num)) return;
     onAdd(cat, num);
-    setCategory("");
     setAmount("");
+    setSelectedCat(null);
+    setNewCatName("");
+    setIsCreatingNew(false);
   };
 
+  const handleCancel = () => {
+    setSelectedCat(null);
+    setIsCreatingNew(false);
+    setAmount("");
+    setNewCatName("");
+  };
+
+  const activeCat = isCreatingNew ? newCatName.trim() : selectedCat;
+  const showAmountInput = selectedCat !== null || isCreatingNew;
+
   return (
-    <form
-      onSubmit={handleSubmit}
-      style={{
-        display: "flex",
-        gap: "0.5rem",
-        alignItems: "center",
-        flexWrap: "wrap",
-      }}
-    >
-      <input
-        list="wealth-categories"
-        value={category}
-        onChange={(e) => setCategory(e.target.value)}
-        placeholder="Category (e.g. Cash)"
-        style={{
-          flex: "1 1 140px",
-          padding: "0.5rem 0.75rem",
-          borderRadius: 8,
-          border: "1px solid var(--bio-border)",
-          background: "var(--bio-bg)",
-          color: "var(--fg)",
-          fontSize: "0.85rem",
-          fontFamily: "inherit",
-          outline: "none",
-        }}
-      />
-      <datalist id="wealth-categories">
-        {categories.map((c) => (
-          <option key={c} value={c} />
+    <div style={{ display: "flex", flexDirection: "column", gap: "0.75rem" }}>
+      {/* Category chips */}
+      <div style={{ display: "flex", flexWrap: "wrap", gap: "0.4rem" }}>
+        {categories.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            onClick={() => {
+              setIsCreatingNew(false);
+              setNewCatName("");
+              setSelectedCat(selectedCat === cat ? null : cat);
+              setAmount("");
+            }}
+            style={{
+              padding: "0.35rem 0.75rem",
+              borderRadius: 100,
+              border: `1px solid ${selectedCat === cat ? "#60a5fa" : "var(--bio-border)"}`,
+              background: selectedCat === cat ? "#60a5fa20" : "transparent",
+              color: selectedCat === cat ? "#60a5fa" : "var(--muted)",
+              fontSize: "0.8rem",
+              fontWeight: 500,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+            }}
+          >
+            {cat}
+          </button>
         ))}
-      </datalist>
-      <input
-        type="number"
-        value={amount}
-        onChange={(e) => setAmount(e.target.value)}
-        placeholder="Amount"
-        step="any"
-        style={{
-          flex: "1 1 120px",
-          padding: "0.5rem 0.75rem",
-          borderRadius: 8,
-          border: "1px solid var(--bio-border)",
-          background: "var(--bio-bg)",
-          color: "var(--fg)",
-          fontSize: "0.85rem",
-          fontFamily: "inherit",
-          outline: "none",
-        }}
-      />
-      <button
-        type="submit"
-        disabled={!category.trim() || !amount}
-        style={{
-          padding: "0.5rem 1rem",
-          borderRadius: 8,
-          border: "1px solid #60a5fa60",
-          background: "#60a5fa20",
-          color: "#60a5fa",
-          fontSize: "0.85rem",
-          fontWeight: 500,
-          cursor: category.trim() && amount ? "pointer" : "default",
-          fontFamily: "inherit",
-          transition: "all 0.15s",
-          opacity: category.trim() && amount ? 1 : 0.4,
-        }}
-      >
-        Add
-      </button>
-    </form>
+        <button
+          type="button"
+          onClick={() => {
+            setSelectedCat(null);
+            setIsCreatingNew(!isCreatingNew);
+            setAmount("");
+            setNewCatName("");
+          }}
+          style={{
+            padding: "0.35rem 0.75rem",
+            borderRadius: 100,
+            border: `1px solid ${isCreatingNew ? "#34d399" : "var(--bio-border)"}`,
+            background: isCreatingNew ? "#34d39920" : "transparent",
+            color: isCreatingNew ? "#34d399" : "var(--muted)",
+            fontSize: "0.8rem",
+            fontWeight: 500,
+            cursor: "pointer",
+            fontFamily: "inherit",
+            transition: "all 0.15s",
+            display: "flex",
+            alignItems: "center",
+            gap: "0.25rem",
+          }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          New
+        </button>
+      </div>
+
+      {/* New category name input */}
+      {isCreatingNew && (
+        <input
+          type="text"
+          value={newCatName}
+          onChange={(e) => setNewCatName(e.target.value)}
+          placeholder="Category name (e.g. Cash)"
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === "Escape") handleCancel();
+          }}
+          style={{
+            padding: "0.5rem 0.75rem",
+            borderRadius: 8,
+            border: "1px solid #34d39960",
+            background: "var(--bio-bg)",
+            color: "var(--fg)",
+            fontSize: "0.85rem",
+            fontFamily: "inherit",
+            outline: "none",
+          }}
+        />
+      )}
+
+      {/* Amount input row */}
+      {showAmountInput && (
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            display: "flex",
+            gap: "0.5rem",
+            alignItems: "center",
+          }}
+        >
+          <input
+            type="number"
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            placeholder={`Amount for ${activeCat || "..."}`}
+            step="any"
+            autoFocus={!isCreatingNew}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") handleCancel();
+            }}
+            style={{
+              flex: 1,
+              padding: "0.5rem 0.75rem",
+              borderRadius: 8,
+              border: "1px solid var(--bio-border)",
+              background: "var(--bio-bg)",
+              color: "var(--fg)",
+              fontSize: "0.85rem",
+              fontFamily: "inherit",
+              outline: "none",
+            }}
+          />
+          <button
+            type="submit"
+            disabled={!activeCat || !amount}
+            style={{
+              padding: "0.5rem 1rem",
+              borderRadius: 8,
+              border: "1px solid #60a5fa60",
+              background: "#60a5fa20",
+              color: "#60a5fa",
+              fontSize: "0.85rem",
+              fontWeight: 500,
+              cursor: activeCat && amount ? "pointer" : "default",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+              opacity: activeCat && amount ? 1 : 0.4,
+            }}
+          >
+            Add
+          </button>
+          <button
+            type="button"
+            onClick={handleCancel}
+            style={{
+              padding: "0.5rem",
+              borderRadius: 8,
+              border: "1px solid var(--bio-border)",
+              background: "transparent",
+              color: "var(--muted)",
+              fontSize: "0.85rem",
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
+          </button>
+        </form>
+      )}
+    </div>
   );
 }
 
@@ -252,7 +358,6 @@ export function WealthDashboard() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState(0);
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
-  const [showAddForm, setShowAddForm] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState("");
@@ -387,7 +492,6 @@ export function WealthDashboard() {
     // Step 2: actually delete
     setEntries([]);
     setSelectedCategory(null);
-    setShowAddForm(false);
     setEditingCategory(null);
     setResetStep(0);
     fetch("/api/wealth", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
@@ -559,34 +663,6 @@ export function WealthDashboard() {
           )}
           {hasData && (
             <button
-              onClick={() => setShowAddForm(!showAddForm)}
-              title="Add entry"
-              style={{
-                padding: "0.3rem",
-                borderRadius: 8,
-                border: "1px solid var(--bio-border)",
-                background: showAddForm ? "#60a5fa20" : "transparent",
-                color: showAddForm ? "#60a5fa" : "var(--muted)",
-                fontSize: "0.85rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 28,
-                height: 28,
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-            </button>
-          )}
-          {hasData && (
-            <button
               onClick={handleReset}
               title={resetStep === 0 ? "Clear all data" : resetStep === 1 ? "Click again to confirm" : "Click to permanently delete"}
               style={{
@@ -618,8 +694,8 @@ export function WealthDashboard() {
         </div>
       </div>
 
-      {/* Add form (when data exists and toggled) */}
-      {showAddForm && hasData && (
+      {/* Add entry — category-first flow */}
+      {hasData && (
         <div
           style={{
             marginBottom: "1rem",
@@ -631,6 +707,9 @@ export function WealthDashboard() {
             animation: "rise 0.4s ease-out forwards",
           }}
         >
+          <div style={{ fontSize: "0.75rem", color: "var(--muted)", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "0.5rem" }}>
+            Add entry
+          </div>
           <AddEntryForm categories={categories} onAdd={handleAdd} />
         </div>
       )}
