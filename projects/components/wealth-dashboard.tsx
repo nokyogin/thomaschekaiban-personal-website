@@ -652,45 +652,50 @@ export function WealthDashboard() {
             alignItems: "stretch",
           }}
         >
-          {/* Total tab — non-draggable, always has subtle fill */}
+          {/* Net Worth tab — non-draggable, visually distinct */}
           <button
             onClick={() => setSelectedCategory(null)}
             style={{
-              background: selectedCategory === null ? "#34d39918" : "#34d39908",
-              border: `1.5px solid ${selectedCategory === null ? "#34d39960" : "#34d39925"}`,
+              background: selectedCategory === null
+                ? "linear-gradient(135deg, #34d39920 0%, #60a5fa15 100%)"
+                : "linear-gradient(135deg, #34d39910 0%, #60a5fa08 100%)",
+              border: `1.5px solid ${selectedCategory === null ? "#34d39960" : "#34d39920"}`,
               borderRadius: 10,
-              padding: "0.65rem 0.85rem",
+              padding: "0.75rem 1rem",
               cursor: "pointer",
               textAlign: "left",
               fontFamily: "inherit",
               transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
               display: "flex",
               flexDirection: "column",
-              gap: "0.15rem",
+              gap: "0.2rem",
               flexShrink: 0,
-              minWidth: 130,
-              flex: 1,
-              boxShadow: selectedCategory === null ? "inset 3px 0 0 #34d399" : "none",
+              minWidth: 150,
+              flex: 1.3,
+              boxShadow: selectedCategory === null
+                ? "inset 3px 0 0 #34d399, 0 0 16px #34d39910"
+                : "0 0 8px #34d39908",
             }}
           >
             <span
               style={{
-                fontSize: "0.7rem",
-                color: selectedCategory === null ? "#34d399" : "#34d39980",
-                fontWeight: 600,
+                fontSize: "0.65rem",
+                color: selectedCategory === null ? "#34d399" : "#34d39970",
+                fontWeight: 700,
                 textTransform: "uppercase",
-                letterSpacing: "0.04em",
+                letterSpacing: "0.08em",
                 transition: "color 0.2s ease",
               }}
             >
-              Total
+              Net Worth
             </span>
             <span
               style={{
-                fontSize: "1.15rem",
+                fontSize: "1.3rem",
                 fontWeight: 700,
                 color: selectedCategory === null ? "#e8e8e8" : "var(--fg)",
                 transition: "color 0.2s ease",
+                letterSpacing: "-0.01em",
               }}
             >
               {maskAmount(totalWealth)}
