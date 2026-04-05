@@ -172,32 +172,60 @@ export function Sidebar() {
                     }}
                   >
                     {project.slug === "health" && (
-                      <button
-                        onClick={() => window.dispatchEvent(new CustomEvent("sidebar:upload"))}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "0.5rem",
-                          padding: "0.3rem 0",
-                          fontSize: "0.78rem",
-                          fontWeight: 400,
-                          fontFamily: "inherit",
-                          color: "var(--muted)",
-                          background: "transparent",
-                          border: "none",
-                          cursor: "pointer",
-                          transition: "color 0.15s ease",
-                        }}
-                        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--fg)")}
-                        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                          <polyline points="17 8 12 3 7 8" />
-                          <line x1="12" y1="3" x2="12" y2="15" />
-                        </svg>
-                        Upload
-                      </button>
+                      <>
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent("sidebar:upload"))}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            padding: "0.3rem 0",
+                            fontSize: "0.78rem",
+                            fontWeight: 400,
+                            fontFamily: "inherit",
+                            color: "var(--muted)",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            transition: "color 0.15s ease",
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "var(--fg)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                            <polyline points="17 8 12 3 7 8" />
+                            <line x1="12" y1="3" x2="12" y2="15" />
+                          </svg>
+                          Upload
+                        </button>
+                        <button
+                          onClick={() => window.dispatchEvent(new CustomEvent("sidebar:reset"))}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: "0.5rem",
+                            padding: "0.3rem 0",
+                            fontSize: "0.78rem",
+                            fontWeight: 400,
+                            fontFamily: "inherit",
+                            color: "#ef4444",
+                            background: "transparent",
+                            border: "none",
+                            cursor: "pointer",
+                            transition: "opacity 0.15s ease",
+                            opacity: 0.7,
+                          }}
+                          onMouseEnter={(e) => (e.currentTarget.style.opacity = "1")}
+                          onMouseLeave={(e) => (e.currentTarget.style.opacity = "0.7")}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="1 4 1 10 7 10" />
+                            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+                          </svg>
+                          Reset data
+                        </button>
+                      </>
                     )}
                     {project.slug === "wealth" && (
                       <>
