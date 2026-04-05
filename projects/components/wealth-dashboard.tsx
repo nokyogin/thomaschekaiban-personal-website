@@ -652,20 +652,20 @@ export function WealthDashboard() {
             alignItems: "stretch",
           }}
         >
-          {/* Net Worth tab — non-draggable, visually distinct */}
+          {/* Net Worth tab — non-draggable, inverted colors to stand out */}
           <button
             onClick={() => setSelectedCategory(null)}
             style={{
               background: selectedCategory === null
-                ? "linear-gradient(135deg, #34d39920 0%, #60a5fa15 100%)"
-                : "linear-gradient(135deg, #34d39910 0%, #60a5fa08 100%)",
-              border: `1.5px solid ${selectedCategory === null ? "#34d39960" : "#34d39920"}`,
+                ? "#e8e8e8"
+                : "#e8e8e810",
+              border: `1.5px solid ${selectedCategory === null ? "#e8e8e8" : "#e8e8e825"}`,
               borderRadius: 10,
               padding: "0.75rem 1rem",
               cursor: "pointer",
               textAlign: "left",
               fontFamily: "inherit",
-              transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
+              transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease",
               display: "flex",
               flexDirection: "column",
               gap: "0.2rem",
@@ -673,14 +673,14 @@ export function WealthDashboard() {
               minWidth: 150,
               flex: 1.3,
               boxShadow: selectedCategory === null
-                ? "inset 3px 0 0 #34d399, 0 0 16px #34d39910"
-                : "0 0 8px #34d39908",
+                ? "none"
+                : "none",
             }}
           >
             <span
               style={{
                 fontSize: "0.65rem",
-                color: selectedCategory === null ? "#34d399" : "#34d39970",
+                color: selectedCategory === null ? "#111" : "#e8e8e860",
                 fontWeight: 700,
                 textTransform: "uppercase",
                 letterSpacing: "0.08em",
@@ -693,7 +693,7 @@ export function WealthDashboard() {
               style={{
                 fontSize: "1.3rem",
                 fontWeight: 700,
-                color: selectedCategory === null ? "#e8e8e8" : "var(--fg)",
+                color: selectedCategory === null ? "#111" : "var(--fg)",
                 transition: "color 0.2s ease",
                 letterSpacing: "-0.01em",
               }}
