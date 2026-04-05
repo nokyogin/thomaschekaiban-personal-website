@@ -137,12 +137,6 @@
       animation: rise 0.6s ease-out 0.12s forwards;
     }
 
-    .bio .link-vizzia { color: #e07020; font-weight: 600; border-bottom-color: rgba(224,112,32,0.3); }
-    .bio .link-vizzia:hover { border-bottom-color: #e07020; }
-
-    .bio .link-siwa { color: #2563eb; font-weight: 600; border-bottom-color: rgba(37,99,235,0.3); }
-    .bio .link-siwa:hover { border-bottom-color: #2563eb; }
-
     .divider {
       width: 32px;
       height: 1px;
@@ -152,12 +146,19 @@
       animation: rise 0.6s ease-out 0.12s forwards;
     }
 
-    .bio {
-      font-size: 1.05rem;
-      color: var(--bio-color);
-      line-height: 1.7;
-      text-align: center;
+    .cards {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
       margin-bottom: 2.5rem;
+      opacity: 0;
+      animation: rise 0.6s ease-out 0.14s forwards;
+    }
+
+    .card {
+      display: flex;
+      align-items: flex-start;
+      gap: 1rem;
       padding: 1.25rem 1.5rem;
       background: var(--bio-bg);
       border: 1px solid var(--bio-border);
@@ -166,21 +167,57 @@
         0 2px 8px var(--card-shadow-1),
         0 8px 24px var(--card-shadow-2),
         0 1px 0 var(--card-highlight) inset;
-      transition: background 0.3s ease;
-      opacity: 0;
-      animation: rise 0.6s ease-out 0.14s forwards;
-    }
-
-    .bio a {
-      color: var(--fg);
+      transition: background 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
       text-decoration: none;
-      font-weight: 500;
-      border-bottom: 1px solid var(--link-border);
-      transition: border-color 0.2s;
+      color: inherit;
     }
 
-    .bio a:hover {
-      border-color: var(--fg);
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow:
+        0 4px 12px var(--card-shadow-1),
+        0 12px 32px var(--card-shadow-2);
+    }
+
+    .card-logo {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: #fff;
+      flex-shrink: 0;
+    }
+
+    .card-logo--vizzia { background: #e07020; }
+    .card-logo--siwa { background: #2563eb; }
+
+    .card-body {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-title {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--fg);
+      line-height: 1.3;
+    }
+
+    .card-role {
+      font-size: 0.88rem;
+      color: var(--muted);
+      margin-top: 0.15rem;
+    }
+
+    .card-desc {
+      font-size: 0.95rem;
+      color: var(--bio-color);
+      line-height: 1.6;
+      margin-top: 0.4rem;
     }
 
     .email-btn {
@@ -301,7 +338,24 @@
     <p class="roles">Head of Product & Co-founder</p>
     <p class="subtitle">10+ years shaping products across B2B and B2C</p>
     <div class="divider"></div>
-    <p class="bio">Currently leading product at <a href="https://vizzia.com" target="_blank" rel="noopener" class="link-vizzia">Vizzia</a>, where I focus on building tools that help keep cities clean and safe. Also created a word and puzzle game platform called <a href="https://siwa.io" target="_blank" rel="noopener" class="link-siwa">Siwa</a>.</p>
+    <div class="cards">
+      <a href="https://vizzia.com" target="_blank" rel="noopener" class="card">
+        <div class="card-logo card-logo--vizzia">V</div>
+        <div class="card-body">
+          <div class="card-title">Vizzia</div>
+          <div class="card-role">Head of Product</div>
+          <div class="card-desc">Building tools that help keep cities clean and safe.</div>
+        </div>
+      </a>
+      <a href="https://siwa.io" target="_blank" rel="noopener" class="card">
+        <div class="card-logo card-logo--siwa">S</div>
+        <div class="card-body">
+          <div class="card-title">Siwa</div>
+          <div class="card-role">Co-founder</div>
+          <div class="card-desc">A word and puzzle game platform.</div>
+        </div>
+      </a>
+    </div>
     <nav class="links">
       <a href="https://linkedin.com/in/thomaschekaiban" target="_blank" rel="noopener">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M20.5 2h-17A1.5 1.5 0 002 3.5v17A1.5 1.5 0 003.5 22h17a1.5 1.5 0 001.5-1.5v-17A1.5 1.5 0 0020.5 2zM8 19H5v-9h3zM6.5 8.25A1.75 1.75 0 118.3 6.5a1.78 1.78 0 01-1.8 1.75zM19 19h-3v-4.74c0-1.42-.6-1.93-1.38-1.93A1.74 1.74 0 0013 14.19V19h-3v-9h2.9v1.3a3.11 3.11 0 012.7-1.4c1.55 0 3.36.86 3.36 3.66z"/></svg>
