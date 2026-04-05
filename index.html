@@ -147,7 +147,7 @@
 
     .card {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 1rem;
       padding: 1.25rem 1.5rem;
       background: var(--bio-bg);
@@ -178,6 +178,9 @@
       justify-content: center;
       flex-shrink: 0;
       overflow: hidden;
+      box-shadow:
+        0 2px 6px rgba(0,0,0,0.12),
+        0 1px 2px rgba(0,0,0,0.08);
     }
 
     .card-logo img {
@@ -227,7 +230,8 @@
     .card-tags {
       display: flex;
       gap: 0.35rem;
-      margin-top: 0.35rem;
+      margin-left: auto;
+      flex-shrink: 0;
     }
 
     .card-tag {
@@ -377,10 +381,10 @@
             <span class="card-sep">&middot;</span>
             <div class="card-role">Head of Product</div>
           </div>
-          <div class="card-tags">
-            <span class="card-tag">B2G</span>
-          </div>
-          <div class="card-desc">Building tools that help keep cities clean and safe.</div>
+          <div class="card-desc">Keeping cities clean and safe.</div>
+        </div>
+        <div class="card-tags">
+          <span class="card-tag">B2G</span>
         </div>
       </a>
       <a href="https://siwa.io" target="_blank" rel="noopener" class="card">
@@ -394,11 +398,11 @@
             <span class="card-sep">&middot;</span>
             <div class="card-role">Co-founder</div>
           </div>
-          <div class="card-tags">
-            <span class="card-tag">B2B</span>
-            <span class="card-tag">B2C</span>
-          </div>
-          <div class="card-desc">A word and puzzle game platform.</div>
+          <div class="card-desc">Word and puzzle game platform.</div>
+        </div>
+        <div class="card-tags">
+          <span class="card-tag">B2B</span>
+          <span class="card-tag">B2C</span>
         </div>
       </a>
     </div>
