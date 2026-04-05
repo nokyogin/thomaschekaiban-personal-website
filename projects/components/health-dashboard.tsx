@@ -268,7 +268,9 @@ export function HealthDashboard() {
   const [showUploader, setShowUploader] = useState(false);
   const [dbLoaded, setDbLoaded] = useState(false);
   const [lastUploadDate, setLastUploadDate] = useState<string | null>(null);
-  const [resetStep, setResetStep] = useState(0); // 0=idle, 1=first confirm, 2=second confirm
+  const [resetStep, setResetStep] = useState(0);
+  const [resetPhrase, setResetPhrase] = useState("");
+  const [showResetModal, setShowResetModal] = useState(false);
 
   // Fetch from DB on mount
   useEffect(() => {
@@ -311,27 +313,35 @@ export function HealthDashboard() {
   );
 
   const handleReset = useCallback(() => {
-    if (resetStep === 0) {
-      setResetStep(1);
-      return;
-    }
+    setShowResetModal(true);
+    setResetStep(1);
+    setResetPhrase("");
+  }, []);
+
+  const handleResetConfirm = useCallback(() => {
     if (resetStep === 1) {
       setResetStep(2);
       return;
     }
-    // Step 2: actually delete
-    setData([]);
-    setLastUploadDate(null);
-    setResetStep(0);
-    fetch("/api/health", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
-  }, [resetStep]);
+    if (resetStep === 2) {
+      setResetStep(3);
+      return;
+    }
+    if (resetStep === 3 && resetPhrase === "Zidane validates this data reset") {
+      setData([]);
+      setLastUploadDate(null);
+      setResetStep(0);
+      setShowResetModal(false);
+      setResetPhrase("");
+      fetch("/api/health", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
+    }
+  }, [resetStep, resetPhrase]);
 
-  // Reset the confirmation steps if user doesn't continue within 4s
-  useEffect(() => {
-    if (resetStep === 0) return;
-    const t = setTimeout(() => setResetStep(0), 4000);
-    return () => clearTimeout(t);
-  }, [resetStep]);
+  const handleResetCancel = useCallback(() => {
+    setShowResetModal(false);
+    setResetStep(0);
+    setResetPhrase("");
+  }, []);
 
   // Listen for sidebar events
   useEffect(() => {
@@ -552,6 +562,108 @@ export function HealthDashboard() {
         </div>
       )}
 
+      {/* Reset data modal */}
+      {showResetModal && (
+        <div
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0, 0, 0, 0.6)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+            padding: "1rem",
+          }}
+          onClick={handleResetCancel}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "#1a1a1a",
+              border: "1px solid var(--bio-border)",
+              borderRadius: 14,
+              padding: "1.5rem",
+              maxWidth: 400,
+              width: "100%",
+              opacity: 0,
+              animation: "rise 0.3s ease-out forwards",
+            }}
+          >
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.5rem", color: "#ef4444" }}>
+              {resetStep === 1 && "Reset data?"}
+              {resetStep === 2 && "Are you sure?"}
+              {resetStep === 3 && "Final confirmation"}
+            </h3>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "1.25rem", lineHeight: 1.5 }}>
+              {resetStep === 1 && "This will permanently delete all health data. This action cannot be undone."}
+              {resetStep === 2 && "All measurements, records, and history will be permanently erased. There is no recovery."}
+              {resetStep === 3 && (
+                <>Type <span style={{ color: "var(--fg)", fontWeight: 600 }}>Zidane validates this data reset</span> to confirm.</>
+              )}
+            </p>
+            {resetStep === 3 && (
+              <input
+                type="text"
+                value={resetPhrase}
+                onChange={(e) => setResetPhrase(e.target.value)}
+                onPaste={(e) => e.preventDefault()}
+                placeholder="Type the phrase above"
+                autoFocus
+                style={{
+                  width: "100%",
+                  padding: "0.5rem 0.75rem",
+                  borderRadius: 8,
+                  border: "1px solid #ef444440",
+                  background: "var(--bio-bg)",
+                  color: "var(--fg)",
+                  fontSize: "0.85rem",
+                  fontFamily: "inherit",
+                  outline: "none",
+                  marginBottom: "1rem",
+                }}
+              />
+            )}
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button
+                onClick={handleResetCancel}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: 8,
+                  border: "1px solid var(--bio-border)",
+                  background: "transparent",
+                  color: "var(--muted)",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetConfirm}
+                disabled={resetStep === 3 && resetPhrase !== "Zidane validates this data reset"}
+                style={{
+                  padding: "0.5rem 1rem",
+                  borderRadius: 8,
+                  border: "1px solid #ef4444",
+                  background: "#ef444420",
+                  color: "#ef4444",
+                  fontSize: "0.85rem",
+                  fontWeight: 500,
+                  cursor: resetStep === 3 && resetPhrase !== "Zidane validates this data reset" ? "default" : "pointer",
+                  fontFamily: "inherit",
+                  opacity: resetStep === 3 && resetPhrase !== "Zidane validates this data reset" ? 0.4 : 1,
+                }}
+              >
+                {resetStep === 3 ? "Delete everything" : "Continue"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {hasData && (
       <>
       {/* Metric description — fixed height to prevent layout shift */}
@@ -568,7 +680,8 @@ export function HealthDashboard() {
               background: problem ? "#ef444408" : "transparent",
               border: problem ? "1px solid #ef444420" : "1px solid transparent",
               borderRadius: 10,
-              minHeight: 70,
+              height: 90,
+              overflow: "auto",
             }}
           >
             {metricExplanations[selectedMetric]}
