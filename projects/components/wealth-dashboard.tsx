@@ -587,174 +587,74 @@ export function WealthDashboard() {
             fontSize: "clamp(1.5rem, 4vw, 2rem)",
             fontWeight: 600,
             letterSpacing: "-0.02em",
-            marginBottom: "0.25rem",
           }}
         >
           Wealth Dashboard
         </h1>
-        <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", flexWrap: "wrap" }}>
-          <p style={{ color: "var(--muted)", fontSize: "0.9rem", margin: 0 }}>
-            {hasData ? (
-              <>
-                {maskAmount(totalWealth)} total &middot; {categories.length} categories &middot; {entries.length} entries
-              </>
-            ) : (
-              "No data yet"
-            )}
-          </p>
-          {hasData && (
-            <button
-              onClick={() => {
-                if (amountsHidden) {
-                  setShowUnhideConfirm(true);
-                } else {
-                  setAmountsHidden(true);
-                }
-              }}
-              title={amountsHidden ? "Show amounts" : "Hide amounts"}
-              style={{
-                padding: "0.3rem",
-                borderRadius: 8,
-                border: `1px solid ${amountsHidden ? "var(--bio-border)" : "#60a5fa60"}`,
-                background: amountsHidden ? "transparent" : "#60a5fa20",
-                color: amountsHidden ? "var(--muted)" : "#60a5fa",
-                fontSize: "0.85rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: 28,
-                height: 28,
-              }}
-            >
-              {amountsHidden ? (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              ) : (
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              )}
-            </button>
-          )}
-          {hasData && (
-            <button
-              onClick={handleReset}
-              title={resetStep === 0 ? "Clear all data" : resetStep === 1 ? "Click again to confirm" : "Click to permanently delete"}
-              style={{
-                padding: resetStep > 0 ? "0.3rem 0.6rem" : "0.3rem",
-                borderRadius: 8,
-                border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
-                background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
-                color: "#ef4444",
-                fontSize: "0.75rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "0.3rem",
-                height: 28,
-              }}
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="1 4 1 10 7 10" />
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-              {resetStep === 1 && "Are you sure?"}
-              {resetStep === 2 && "Really delete all?"}
-            </button>
-          )}
-        </div>
       </div>
 
-      {/* Update Amounts — category-first flow */}
-      {hasData && (
-        <div
-          style={{
-            marginBottom: "1rem",
-            padding: "1rem",
-            background: "#111",
-            border: "1px solid #222",
-            borderRadius: 12,
-            opacity: 0,
-            animation: "rise 0.4s ease-out forwards",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-            <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-              Update Amounts
-            </div>
+      {/* Loading skeleton */}
+      {!dbLoaded && (
+        <div style={{ opacity: 0, animation: "rise 0.4s ease-out 0.1s forwards" }}>
+          <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes shimmer {
+              0% { background-position: -400px 0; }
+              100% { background-position: 400px 0; }
+            }
+            .skeleton {
+              background: linear-gradient(90deg, #141414 25%, #1e1e1e 50%, #141414 75%);
+              background-size: 800px 100%;
+              animation: shimmer 1.5s ease-in-out infinite;
+              border-radius: 10px;
+            }
+          ` }} />
+          <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="skeleton" style={{ flex: 1, height: 62, minWidth: 130 }} />
+            ))}
           </div>
-          <AddEntryForm categories={categories} onAdd={handleAdd} />
+          <div className="skeleton" style={{ height: 300, marginBottom: "1rem" }} />
+          <div className="skeleton" style={{ height: 80 }} />
         </div>
       )}
 
-      {/* Empty state with inline add form */}
-      {!hasData && dbLoaded && (
-        <div
-          style={{
-            background: "var(--bio-bg)",
-            border: "1px solid var(--bio-border)",
-            borderRadius: 14,
-            padding: "2rem",
-            marginBottom: "1.5rem",
-            opacity: 0,
-            animation: "rise 0.6s ease-out 0.1s forwards",
-          }}
-        >
-          <div style={{ fontSize: "1rem", fontWeight: 500, marginBottom: "0.75rem" }}>
-            Add your first entry
-          </div>
-          <AddEntryForm categories={[]} onAdd={handleAdd} />
-        </div>
-      )}
-
-      {/* Category cards */}
+      {/* Category tabs */}
       {hasData && (
         <div
           style={{
             display: "flex",
             gap: "0.5rem",
-            marginBottom: "0.75rem",
+            marginBottom: "0.5rem",
             opacity: 0,
             animation: "rise 0.6s ease-out 0.05s forwards",
             overflowX: "auto",
           }}
         >
-          {/* All / Total card — non-draggable, emphasized */}
+          {/* Total tab — non-draggable, distinct green accent */}
           <button
             onClick={() => setSelectedCategory(null)}
             style={{
-              background: selectedCategory === null ? "#60a5fa18" : "#111",
-              border: `1.5px solid ${selectedCategory === null ? "#60a5fa" : "#222"}`,
+              background: selectedCategory === null ? "#34d39915" : "var(--bio-bg)",
+              border: `1.5px solid ${selectedCategory === null ? "#34d39960" : "var(--bio-border)"}`,
               borderRadius: 10,
               padding: "0.65rem 0.85rem",
               cursor: "pointer",
               textAlign: "left",
               fontFamily: "inherit",
-              transition: "background 0.2s ease, border-color 0.2s ease",
+              transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
               display: "flex",
               flexDirection: "column",
               gap: "0.15rem",
               flexShrink: 0,
               minWidth: 130,
               flex: 1,
+              boxShadow: selectedCategory === null ? "inset 3px 0 0 #34d399" : "none",
             }}
           >
             <span
               style={{
                 fontSize: "0.7rem",
-                color: selectedCategory === null ? "#60a5fa" : "#888",
+                color: selectedCategory === null ? "#34d399" : "var(--muted)",
                 fontWeight: 600,
                 textTransform: "uppercase",
                 letterSpacing: "0.04em",
@@ -775,7 +675,7 @@ export function WealthDashboard() {
             </span>
           </button>
 
-          {/* Per-category cards — draggable */}
+          {/* Per-category tabs — draggable */}
           {categories.map((cat) => {
             const isActive = selectedCategory === cat;
             const color = categoryColors[cat];
@@ -797,13 +697,13 @@ export function WealthDashboard() {
                 onClick={() => setSelectedCategory(isActive ? null : cat)}
                 style={{
                   background: isActive ? color + "15" : "var(--bio-bg)",
-                  border: `1.5px solid ${isActive ? color : isDragOver ? color + "80" : "var(--bio-border)"}`,
+                  border: `1.5px solid ${isActive ? color + "60" : isDragOver ? color + "80" : "var(--bio-border)"}`,
                   borderRadius: 10,
                   padding: "0.65rem 0.75rem",
                   cursor: isDragging ? "grabbing" : "pointer",
                   textAlign: "left",
                   fontFamily: "inherit",
-                  transition: "background 0.2s ease, border-color 0.2s ease",
+                  transition: "background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease",
                   display: "flex",
                   flexDirection: "column",
                   gap: "0.15rem",
@@ -811,6 +711,7 @@ export function WealthDashboard() {
                   flexShrink: 0,
                   minWidth: 130,
                   flex: 1,
+                  boxShadow: isActive ? `inset 3px 0 0 ${color}` : "none",
                 }}
               >
                 <span
@@ -838,6 +739,129 @@ export function WealthDashboard() {
               </button>
             );
           })}
+        </div>
+      )}
+
+      {/* Toolbar under tabs: show/hide amounts, reset */}
+      {hasData && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: "0.4rem",
+            marginBottom: "1rem",
+            opacity: 0,
+            animation: "rise 0.4s ease-out 0.08s forwards",
+          }}
+        >
+          <button
+            onClick={() => {
+              if (amountsHidden) {
+                setShowUnhideConfirm(true);
+              } else {
+                setAmountsHidden(true);
+              }
+            }}
+            title={amountsHidden ? "Show amounts" : "Hide amounts"}
+            style={{
+              padding: "0.3rem 0.6rem",
+              borderRadius: 8,
+              border: `1px solid ${amountsHidden ? "var(--bio-border)" : "#60a5fa60"}`,
+              background: amountsHidden ? "transparent" : "#60a5fa20",
+              color: amountsHidden ? "var(--muted)" : "#60a5fa",
+              fontSize: "0.75rem",
+              lineHeight: 1,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+              height: 28,
+            }}
+          >
+            {amountsHidden ? (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                <line x1="1" y1="1" x2="23" y2="23" />
+              </svg>
+            ) : (
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                <circle cx="12" cy="12" r="3" />
+              </svg>
+            )}
+            {amountsHidden ? "Show" : "Hide"}
+          </button>
+          <button
+            onClick={handleReset}
+            title={resetStep === 0 ? "Clear all data" : resetStep === 1 ? "Click again to confirm" : "Click to permanently delete"}
+            style={{
+              padding: resetStep > 0 ? "0.3rem 0.6rem" : "0.3rem 0.6rem",
+              borderRadius: 8,
+              border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
+              background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
+              color: "#ef4444",
+              fontSize: "0.75rem",
+              lineHeight: 1,
+              cursor: "pointer",
+              fontFamily: "inherit",
+              transition: "all 0.15s",
+              display: "flex",
+              alignItems: "center",
+              gap: "0.3rem",
+              height: 28,
+            }}
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="1 4 1 10 7 10" />
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+            </svg>
+            {resetStep === 0 && "Reset"}
+            {resetStep === 1 && "Are you sure?"}
+            {resetStep === 2 && "Really delete all?"}
+          </button>
+        </div>
+      )}
+
+      {/* Update Amounts — category-first flow */}
+      {hasData && (
+        <div
+          style={{
+            marginBottom: "1rem",
+            padding: "1rem",
+            background: "#111",
+            border: "1px solid #222",
+            borderRadius: 12,
+            opacity: 0,
+            animation: "rise 0.4s ease-out 0.1s forwards",
+          }}
+        >
+          <div style={{ fontSize: "0.75rem", color: "#888", fontWeight: 500, textTransform: "uppercase", letterSpacing: "0.04em", marginBottom: "0.5rem" }}>
+            Update Amounts
+          </div>
+          <AddEntryForm categories={categories} onAdd={handleAdd} />
+        </div>
+      )}
+
+      {/* Empty state with inline add form */}
+      {!hasData && dbLoaded && (
+        <div
+          style={{
+            background: "#111",
+            border: "1px solid #222",
+            borderRadius: 14,
+            padding: "2rem",
+            marginBottom: "1.5rem",
+            opacity: 0,
+            animation: "rise 0.6s ease-out 0.1s forwards",
+          }}
+        >
+          <div style={{ fontSize: "1rem", fontWeight: 500, marginBottom: "0.75rem" }}>
+            Add your first entry
+          </div>
+          <AddEntryForm categories={[]} onAdd={handleAdd} />
         </div>
       )}
 
