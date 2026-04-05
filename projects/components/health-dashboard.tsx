@@ -333,6 +333,18 @@ export function HealthDashboard() {
     return () => clearTimeout(t);
   }, [resetStep]);
 
+  // Listen for sidebar events
+  useEffect(() => {
+    const handleUploadEvent = () => setShowUploader((v) => !v);
+    const handleResetEvent = () => handleReset();
+    window.addEventListener("sidebar:upload", handleUploadEvent);
+    window.addEventListener("sidebar:reset", handleResetEvent);
+    return () => {
+      window.removeEventListener("sidebar:upload", handleUploadEvent);
+      window.removeEventListener("sidebar:reset", handleResetEvent);
+    };
+  }, [handleReset]);
+
   const filteredData = useMemo(() => {
     if (timeRange === 0) return data;
     const cutoff = new Date();
@@ -511,65 +523,6 @@ export function HealthDashboard() {
             </button>
           );
         })}
-        {/* Inline action buttons */}
-        {hasCustomData && (
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", flexShrink: 0 }}>
-            <button
-              onClick={() => setShowUploader(!showUploader)}
-              title="Upload CSV"
-              style={{
-                padding: "0.25rem 0.5rem",
-                borderRadius: 8,
-                border: `1px solid ${showUploader ? "#60a5fa60" : "var(--bio-border)"}`,
-                background: showUploader ? "#60a5fa20" : "transparent",
-                color: showUploader ? "#60a5fa" : "var(--muted)",
-                fontSize: "0.7rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-                <polyline points="17 8 12 3 7 8" />
-                <line x1="12" y1="3" x2="12" y2="15" />
-              </svg>
-              Upload
-            </button>
-            <button
-              onClick={handleReset}
-              style={{
-                padding: "0.25rem 0.5rem",
-                borderRadius: 8,
-                border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
-                background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
-                color: "#ef4444",
-                fontSize: "0.7rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="1 4 1 10 7 10" />
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-              {resetStep === 0 && "Reset"}
-              {resetStep === 1 && "Sure?"}
-              {resetStep === 2 && "Delete?"}
-            </button>
-          </div>
-        )}
       </div>
       )}
 
