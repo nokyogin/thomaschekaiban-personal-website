@@ -374,24 +374,6 @@ export function WealthDashboard() {
   const [draggedCat, setDraggedCat] = useState<string | null>(null);
   const [dragOverCat, setDragOverCat] = useState<string | null>(null);
 
-  // Listen for sidebar events
-  useEffect(() => {
-    const handleToggle = () => {
-      if (amountsHidden) {
-        setShowUnhideConfirm(true);
-      } else {
-        setAmountsHidden(true);
-      }
-    };
-    const handleSidebarReset = () => handleReset();
-    window.addEventListener("sidebar:toggle-amounts", handleToggle);
-    window.addEventListener("sidebar:reset", handleSidebarReset);
-    return () => {
-      window.removeEventListener("sidebar:toggle-amounts", handleToggle);
-      window.removeEventListener("sidebar:reset", handleSidebarReset);
-    };
-  }, [amountsHidden, handleReset]);
-
   useEffect(() => {
     fetch("/api/wealth", { credentials: "same-origin" })
       .then((r) => {
@@ -539,6 +521,24 @@ export function WealthDashboard() {
     const t = setTimeout(() => setResetStep(0), 4000);
     return () => clearTimeout(t);
   }, [resetStep]);
+
+  // Listen for sidebar events
+  useEffect(() => {
+    const handleToggle = () => {
+      if (amountsHidden) {
+        setShowUnhideConfirm(true);
+      } else {
+        setAmountsHidden(true);
+      }
+    };
+    const handleSidebarReset = () => handleReset();
+    window.addEventListener("sidebar:toggle-amounts", handleToggle);
+    window.addEventListener("sidebar:reset", handleSidebarReset);
+    return () => {
+      window.removeEventListener("sidebar:toggle-amounts", handleToggle);
+      window.removeEventListener("sidebar:reset", handleSidebarReset);
+    };
+  }, [amountsHidden, handleReset]);
 
   const handleReorder = useCallback((fromCat: string, toCat: string) => {
     setCategoryOrder((prev) => {
