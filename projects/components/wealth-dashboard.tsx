@@ -374,6 +374,24 @@ export function WealthDashboard() {
   const [draggedCat, setDraggedCat] = useState<string | null>(null);
   const [dragOverCat, setDragOverCat] = useState<string | null>(null);
 
+  // Listen for sidebar events
+  useEffect(() => {
+    const handleToggle = () => {
+      if (amountsHidden) {
+        setShowUnhideConfirm(true);
+      } else {
+        setAmountsHidden(true);
+      }
+    };
+    const handleSidebarReset = () => handleReset();
+    window.addEventListener("sidebar:toggle-amounts", handleToggle);
+    window.addEventListener("sidebar:reset", handleSidebarReset);
+    return () => {
+      window.removeEventListener("sidebar:toggle-amounts", handleToggle);
+      window.removeEventListener("sidebar:reset", handleSidebarReset);
+    };
+  }, [amountsHidden, handleReset]);
+
   useEffect(() => {
     fetch("/api/wealth", { credentials: "same-origin" })
       .then((r) => {
@@ -734,76 +752,6 @@ export function WealthDashboard() {
               </button>
             );
           })}
-          {/* Inline action buttons */}
-          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", flexShrink: 0 }}>
-            <button
-              onClick={() => {
-                if (amountsHidden) {
-                  setShowUnhideConfirm(true);
-                } else {
-                  setAmountsHidden(true);
-                }
-              }}
-              title={amountsHidden ? "Show amounts" : "Hide amounts"}
-              style={{
-                padding: "0.25rem 0.5rem",
-                borderRadius: 8,
-                border: `1px solid ${amountsHidden ? "var(--bio-border)" : "#60a5fa60"}`,
-                background: amountsHidden ? "transparent" : "#60a5fa20",
-                color: amountsHidden ? "var(--muted)" : "#60a5fa",
-                fontSize: "0.7rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              {amountsHidden ? (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                  <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                  <line x1="1" y1="1" x2="23" y2="23" />
-                </svg>
-              ) : (
-                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                  <circle cx="12" cy="12" r="3" />
-                </svg>
-              )}
-              {amountsHidden ? "Show" : "Hide"}
-            </button>
-            <button
-              onClick={handleReset}
-              style={{
-                padding: "0.25rem 0.5rem",
-                borderRadius: 8,
-                border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
-                background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
-                color: "#ef4444",
-                fontSize: "0.7rem",
-                lineHeight: 1,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                transition: "all 0.15s",
-                display: "flex",
-                alignItems: "center",
-                gap: "0.25rem",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="1 4 1 10 7 10" />
-                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
-              </svg>
-              {resetStep === 0 && "Reset"}
-              {resetStep === 1 && "Sure?"}
-              {resetStep === 2 && "Delete?"}
-            </button>
-          </div>
         </div>
       )}
 
