@@ -422,15 +422,10 @@ export function HealthDashboard() {
               background: linear-gradient(90deg, #141414 25%, #1e1e1e 50%, #141414 75%);
               background-size: 800px 100%;
               animation: shimmer 1.5s ease-in-out infinite;
-              border-radius: 10px;
+              border-radius: 14px;
             }
           ` }} />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: "0.5rem", marginBottom: "0.75rem" }}>
-            {[1,2,3,4,5,6].map((i) => (
-              <div key={i} className="skeleton" style={{ height: 62 }} />
-            ))}
-          </div>
-          <div className="skeleton" style={{ height: 300, marginBottom: "1rem" }} />
+          <div className="skeleton" style={{ height: 380 }} />
         </div>
       )}
 
@@ -438,12 +433,13 @@ export function HealthDashboard() {
       {hasData && (
       <div
         style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+          display: "flex",
+          flexWrap: "wrap",
           gap: "0.5rem",
-          marginBottom: "0.5rem",
+          marginBottom: "0.75rem",
           opacity: 0,
           animation: "rise 0.6s ease-out 0.05s forwards",
+          alignItems: "stretch",
         }}
       >
         {metrics.map((m) => {
@@ -470,13 +466,14 @@ export function HealthDashboard() {
                 gap: "0.15rem",
                 boxShadow: isActive ? `inset 3px 0 0 ${m.color}` : "none",
                 position: "relative",
+                flex: "1 1 140px",
               }}
             >
               {hasWarning && (
                 <div
                   style={{
                     position: "absolute",
-                    top: 6,
+                    bottom: 6,
                     right: 6,
                     width: 8,
                     height: 8,
@@ -514,81 +511,66 @@ export function HealthDashboard() {
             </button>
           );
         })}
-      </div>
-      )}
-
-      {/* Toolbar under tabs: upload CSV, reset */}
-      {hasData && (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "0.4rem",
-            marginBottom: "1rem",
-            opacity: 0,
-            animation: "rise 0.4s ease-out 0.08s forwards",
-          }}
-        >
-          {hasCustomData && (
+        {/* Inline action buttons */}
+        {hasCustomData && (
+          <div style={{ display: "flex", flexDirection: "column", gap: "0.3rem", flexShrink: 0 }}>
             <button
               onClick={() => setShowUploader(!showUploader)}
               title="Upload CSV"
               style={{
-                padding: "0.3rem 0.6rem",
+                padding: "0.25rem 0.5rem",
                 borderRadius: 8,
                 border: `1px solid ${showUploader ? "#60a5fa60" : "var(--bio-border)"}`,
                 background: showUploader ? "#60a5fa20" : "transparent",
                 color: showUploader ? "#60a5fa" : "var(--muted)",
-                fontSize: "0.75rem",
+                fontSize: "0.7rem",
                 lineHeight: 1,
                 cursor: "pointer",
                 fontFamily: "inherit",
                 transition: "all 0.15s",
                 display: "flex",
                 alignItems: "center",
-                gap: "0.3rem",
-                height: 28,
+                gap: "0.25rem",
+                whiteSpace: "nowrap",
               }}
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="17 8 12 3 7 8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
-              Upload CSV
+              Upload
             </button>
-          )}
-          {hasCustomData && (
             <button
               onClick={handleReset}
-              title={resetStep === 0 ? (lastUploadDate ? `Last upload: ${lastUploadDate}` : "Clear all data") : resetStep === 1 ? "Click again to confirm" : "Click to permanently delete"}
               style={{
-                padding: "0.3rem 0.6rem",
+                padding: "0.25rem 0.5rem",
                 borderRadius: 8,
                 border: `1px solid ${resetStep > 0 ? "#ef4444" : "#ef444430"}`,
                 background: resetStep === 2 ? "#ef444430" : resetStep === 1 ? "#ef444415" : "transparent",
                 color: "#ef4444",
-                fontSize: "0.75rem",
+                fontSize: "0.7rem",
                 lineHeight: 1,
                 cursor: "pointer",
                 fontFamily: "inherit",
                 transition: "all 0.15s",
                 display: "flex",
                 alignItems: "center",
-                gap: "0.3rem",
-                height: 28,
+                gap: "0.25rem",
+                whiteSpace: "nowrap",
               }}
             >
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="1 4 1 10 7 10" />
                 <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
               </svg>
               {resetStep === 0 && "Reset"}
-              {resetStep === 1 && "Are you sure?"}
-              {resetStep === 2 && "Really delete all?"}
+              {resetStep === 1 && "Sure?"}
+              {resetStep === 2 && "Delete?"}
             </button>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
       )}
 
       {/* CSV Uploader (when toggled) */}
@@ -619,7 +601,7 @@ export function HealthDashboard() {
 
       {hasData && (
       <>
-      {/* Metric description */}
+      {/* Metric description — fixed height to prevent layout shift */}
       {(() => {
         const problem = problemsByKey.get(selectedMetric);
         return (
@@ -630,11 +612,10 @@ export function HealthDashboard() {
               lineHeight: 1.6,
               color: "var(--muted)",
               marginBottom: "1rem",
-              opacity: 0,
-              animation: "rise 0.6s ease-out 0.07s forwards",
               background: problem ? "#ef444408" : "transparent",
-              border: problem ? "1px solid #ef444420" : "none",
+              border: problem ? "1px solid #ef444420" : "1px solid transparent",
               borderRadius: 10,
+              minHeight: 70,
             }}
           >
             {metricExplanations[selectedMetric]}
