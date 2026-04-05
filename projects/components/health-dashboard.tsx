@@ -310,14 +310,46 @@ export function HealthDashboard() {
   );
 
 
+  const [resetStep, setResetStep] = useState(0);
+  const [resetPhrase, setResetPhrase] = useState("");
+  const [showResetModal, setShowResetModal] = useState(false);
+
+  const handleReset = useCallback(() => {
+    setShowResetModal(true);
+    setResetStep(1);
+    setResetPhrase("");
+  }, []);
+
+  const handleResetConfirm = useCallback(() => {
+    if (resetStep === 1) { setResetStep(2); return; }
+    if (resetStep === 2) { setResetStep(3); return; }
+    if (resetStep === 3 && resetPhrase === "Zidane validates this data reset") {
+      setData([]);
+      setLastUploadDate(null);
+      setResetStep(0);
+      setShowResetModal(false);
+      setResetPhrase("");
+      fetch("/api/health", { method: "DELETE", credentials: "same-origin" }).catch(console.error);
+    }
+  }, [resetStep, resetPhrase]);
+
+  const handleResetCancel = useCallback(() => {
+    setShowResetModal(false);
+    setResetStep(0);
+    setResetPhrase("");
+  }, []);
+
   // Listen for sidebar events
   useEffect(() => {
     const handleUploadEvent = () => setShowUploader((v) => !v);
+    const handleResetEvent = () => handleReset();
     window.addEventListener("sidebar:upload", handleUploadEvent);
+    window.addEventListener("sidebar:reset", handleResetEvent);
     return () => {
       window.removeEventListener("sidebar:upload", handleUploadEvent);
+      window.removeEventListener("sidebar:reset", handleResetEvent);
     };
-  }, []);
+  }, [handleReset]);
 
   const filteredData = useMemo(() => {
     if (timeRange === 0) return data;
@@ -523,6 +555,47 @@ export function HealthDashboard() {
           }}
         >
           <CSVUploader onUpload={handleUpload} />
+        </div>
+      )}
+
+      {/* Reset data modal — clears measurement records, keeps profile */}
+      {showResetModal && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000, padding: "1rem" }}
+          onClick={handleResetCancel}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ background: "#1a1a1a", border: "1px solid var(--bio-border)", borderRadius: 14, padding: "1.5rem", maxWidth: 400, width: "100%", opacity: 0, animation: "rise 0.3s ease-out forwards" }}
+          >
+            <h3 style={{ fontSize: "1.1rem", fontWeight: 600, marginBottom: "0.5rem", color: "#ef4444" }}>
+              {resetStep === 1 && "Reset data?"}
+              {resetStep === 2 && "Are you sure?"}
+              {resetStep === 3 && "Final confirmation"}
+            </h3>
+            <p style={{ color: "var(--muted)", fontSize: "0.9rem", marginBottom: "1.25rem", lineHeight: 1.5 }}>
+              {resetStep === 1 && "This will delete all uploaded measurement records. Your profile (height, age, sex) will not be affected."}
+              {resetStep === 2 && "All measurement history will be permanently erased. There is no recovery."}
+              {resetStep === 3 && (<>Type <span style={{ color: "var(--fg)", fontWeight: 600 }}>Zidane validates this data reset</span> to confirm.</>)}
+            </p>
+            {resetStep === 3 && (
+              <input
+                type="text" value={resetPhrase} onChange={(e) => setResetPhrase(e.target.value)} onPaste={(e) => e.preventDefault()}
+                placeholder="Type the phrase above" autoFocus
+                style={{ width: "100%", padding: "0.5rem 0.75rem", borderRadius: 8, border: "1px solid #ef444440", background: "var(--bio-bg)", color: "var(--fg)", fontSize: "0.85rem", fontFamily: "inherit", outline: "none", marginBottom: "1rem" }}
+              />
+            )}
+            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end" }}>
+              <button onClick={handleResetCancel} style={{ padding: "0.5rem 1rem", borderRadius: 8, border: "1px solid var(--bio-border)", background: "transparent", color: "var(--muted)", fontSize: "0.85rem", fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>Cancel</button>
+              <button
+                onClick={handleResetConfirm}
+                disabled={resetStep === 3 && resetPhrase !== "Zidane validates this data reset"}
+                style={{ padding: "0.5rem 1rem", borderRadius: 8, border: "1px solid #ef4444", background: "#ef444420", color: "#ef4444", fontSize: "0.85rem", fontWeight: 500, cursor: resetStep === 3 && resetPhrase !== "Zidane validates this data reset" ? "default" : "pointer", fontFamily: "inherit", opacity: resetStep === 3 && resetPhrase !== "Zidane validates this data reset" ? 0.4 : 1 }}
+              >
+                {resetStep === 3 ? "Delete everything" : "Continue"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
