@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { HealthRecord, userProfile, getUserAge } from "@/data/health-data";
-import { evaluateProblems, generateAdvice } from "@/data/health-recommendations";
+import { evaluateMetricHealth, generateAdvice, MetricStatus } from "@/data/health-recommendations";
 import { CSVUploader } from "./csv-uploader";
 
 type MetricKey = keyof Omit<HealthRecord, "time">;
@@ -245,10 +245,11 @@ function Chart({
   );
 }
 
-function getAllProblemKeys(data: HealthRecord[]): Set<MetricKey> {
-  const problems = evaluateProblems(data, userProfile);
-  return new Set(problems.map((p) => p.metricKey));
-}
+const STATUS_COLORS: Record<MetricStatus, string> = {
+  green: "#34d399",
+  orange: "#f59e0b",
+  red: "#ef4444",
+};
 
 
 export function HealthDashboard() {
@@ -365,8 +366,9 @@ export function HealthDashboard() {
     metric.decimals === 0 ? change.toFixed(0) : change.toFixed(metric.decimals);
   const changePercent = firstValue !== 0 ? ((change / firstValue) * 100).toFixed(1) : "0.0";
 
-  const warningKeys = useMemo(() => getAllProblemKeys(data), [data]);
+  const metricHealth = useMemo(() => evaluateMetricHealth(data, userProfile), [data]);
   const advice = useMemo(() => generateAdvice(data, userProfile), [data]);
+  const [expandedAdvice, setExpandedAdvice] = useState<Record<string, boolean>>({});
 
   return (
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100 }}>
@@ -451,7 +453,8 @@ export function HealthDashboard() {
           // Show latest non-zero value for each metric
           const latestNonZero = [...data].reverse().find((d) => (d[m.key] as number) > 0);
           const val = latestNonZero ? (latestNonZero[m.key] as number) : latest ? (latest[m.key] as number) : 0;
-          const hasWarning = warningKeys.has(m.key);
+          const health = metricHealth[m.key];
+          const dotColor = STATUS_COLORS[health?.status ?? "green"];
           return (
             <button
               key={m.key}
@@ -473,20 +476,19 @@ export function HealthDashboard() {
                 flex: "1 1 140px",
               }}
             >
-              {hasWarning && (
-                <div
-                  style={{
-                    position: "absolute",
-                    bottom: 6,
-                    right: 6,
-                    width: 8,
-                    height: 8,
-                    borderRadius: "50%",
-                    background: "#ef4444",
-                    boxShadow: "0 0 6px #ef444480",
-                  }}
-                />
-              )}
+              <div
+                style={{
+                  position: "absolute",
+                  bottom: 6,
+                  right: 6,
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: dotColor,
+                  boxShadow: health?.status !== "green" ? `0 0 6px ${dotColor}80` : "none",
+                  opacity: health?.status === "green" ? 0.6 : 1,
+                }}
+              />
               <span
                 style={{
                   fontSize: "0.7rem",
@@ -587,7 +589,7 @@ export function HealthDashboard() {
 
       {hasData && (
       <>
-      {/* Unified advice panel — 3 pillars */}
+      {/* Unified advice panel — 3 pillars with collapsible detail */}
       {advice && (
         <div
           style={{
@@ -605,6 +607,13 @@ export function HealthDashboard() {
             };
             const colors = colorMap[item.icon] ?? colorMap.activity;
             const urgencyBorder = item.urgency >= 2 ? "#ef444440" : colors.border;
+            const isExpanded = expandedAdvice[item.icon] ?? false;
+
+            // Split text: first sentence is the key takeaway, rest is detail
+            const firstDot = item.text.indexOf(". ");
+            const takeaway = firstDot > 0 ? item.text.slice(0, firstDot + 1) : item.text;
+            const detail = firstDot > 0 ? item.text.slice(firstDot + 2) : "";
+
             return (
               <div
                 key={item.icon}
@@ -626,12 +635,40 @@ export function HealthDashboard() {
                     letterSpacing: "0.06em",
                     color: item.urgency >= 2 ? "#ef4444" : colors.accent,
                     marginBottom: "0.35rem",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
                   }}
                 >
-                  {item.label}
-                  {item.urgency >= 2 && " — Needs attention"}
+                  <span>
+                    {item.label}
+                    {item.urgency >= 2 && " — Needs attention"}
+                  </span>
+                  {detail && (
+                    <button
+                      onClick={() => setExpandedAdvice((prev) => ({ ...prev, [item.icon]: !isExpanded }))}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: colors.accent,
+                        cursor: "pointer",
+                        padding: 0,
+                        fontSize: "0.65rem",
+                        fontFamily: "inherit",
+                        opacity: 0.7,
+                        transition: "opacity 0.15s",
+                      }}
+                    >
+                      {isExpanded ? "Less" : "More"}
+                    </button>
+                  )}
                 </div>
-                {item.text}
+                {takeaway}
+                {isExpanded && detail && (
+                  <div style={{ marginTop: "0.4rem", color: "var(--bio-color)" }}>
+                    {detail}
+                  </div>
+                )}
               </div>
             );
           })}

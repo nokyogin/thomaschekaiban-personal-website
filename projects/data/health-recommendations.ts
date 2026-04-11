@@ -288,49 +288,77 @@ export function generateAdvice(
 }
 
 // ---------------------------------------------------------------------------
-// Legacy exports — kept for warning indicators on tabs
+// Metric health status — every metric gets a status dot
 // ---------------------------------------------------------------------------
 
-export interface Problem {
-  metricKey: MetricKey;
-  metricLabel: string;
-  metricColor: string;
-  severity: number;
-  title: string;
-  action: string;
+export type MetricStatus = "green" | "orange" | "red";
+
+export interface MetricHealth {
+  status: MetricStatus;
 }
 
 /**
- * Evaluate which metrics have issues (for tab warning dots).
- * Simplified from the old per-metric system — just flags metrics
- * that are outside healthy ranges.
+ * Evaluate health status for every metric.
+ * Returns a map: metricKey → status (green/orange/red).
+ * Every metric always has a status.
  */
-export function evaluateProblems(
+export function evaluateMetricHealth(
   data: HealthRecord[],
   profile: UserProfile,
-): Problem[] {
-  if (data.length === 0) return [];
+): Record<string, MetricHealth> {
+  const result: Record<string, MetricHealth> = {
+    weight: { status: "green" },
+    bodyFat: { status: "green" },
+    muscleMass: { status: "green" },
+    skeletalMuscleMass: { status: "green" },
+    bmr: { status: "green" },
+    visceralFat: { status: "green" },
+    water: { status: "green" },
+  };
+
+  if (data.length === 0) return result;
 
   const latest = data[data.length - 1];
   const first = data[0];
-  const problems: Problem[] = [];
+  const age = getUserAge();
 
-  if (latest.bodyFat > 17)
-    problems.push({ metricKey: "bodyFat", metricLabel: "Body Fat", metricColor: "#f97316", severity: 1, title: "", action: "" });
-  if (latest.bodyFat < 6)
-    problems.push({ metricKey: "bodyFat", metricLabel: "Body Fat", metricColor: "#f97316", severity: 2, title: "", action: "" });
-  if (latest.muscleMass - first.muscleMass < -0.5)
-    problems.push({ metricKey: "muscleMass", metricLabel: "Muscle Mass", metricColor: "#34d399", severity: 1, title: "", action: "" });
-  if ((latest.skeletalMuscleMass / latest.weight) * 100 < 40)
-    problems.push({ metricKey: "skeletalMuscleMass", metricLabel: "Skeletal Muscle", metricColor: "#2dd4bf", severity: 1, title: "", action: "" });
-  if (latest.visceralFat > 9)
-    problems.push({ metricKey: "visceralFat", metricLabel: "Visceral Fat", metricColor: "#fb7185", severity: 1, title: "", action: "" });
-  if (latest.water < 55)
-    problems.push({ metricKey: "water", metricLabel: "Water", metricColor: "#38bdf8", severity: 1, title: "", action: "" });
+  // Weight
+  const weightVals = data.map((d) => d.weight);
+  const weightAvg = weightVals.reduce((a, b) => a + b, 0) / weightVals.length;
+  const weightStd = Math.sqrt(weightVals.reduce((sum, v) => sum + Math.pow(v - weightAvg, 2), 0) / weightVals.length);
+  if (weightStd > 3) result.weight = { status: "red" };
+  else if (weightStd > 2) result.weight = { status: "orange" };
 
-  const expectedBmr = 10 * latest.weight + 6.25 * profile.heightCm - 5 * getUserAge() - 5;
-  if (expectedBmr - latest.bmr > 50)
-    problems.push({ metricKey: "bmr", metricLabel: "BMR", metricColor: "#fb923c", severity: 1, title: "", action: "" });
+  // Body fat
+  if (latest.bodyFat > 20 || latest.bodyFat < 6) result.bodyFat = { status: "red" };
+  else if (latest.bodyFat > 17 || latest.bodyFat < 8) result.bodyFat = { status: "orange" };
 
-  return problems;
+  // Muscle mass
+  const muscleChange = latest.muscleMass - first.muscleMass;
+  const muscleRatio = (latest.muscleMass / latest.weight) * 100;
+  if (muscleChange < -1 || muscleRatio < 70) result.muscleMass = { status: "red" };
+  else if (muscleChange < -0.5 || muscleRatio < 75) result.muscleMass = { status: "orange" };
+
+  // Skeletal muscle mass
+  const smRatio = (latest.skeletalMuscleMass / latest.weight) * 100;
+  const smChange = latest.skeletalMuscleMass - first.skeletalMuscleMass;
+  if (smRatio < 35 || smChange < -0.5) result.skeletalMuscleMass = { status: "red" };
+  else if (smRatio < 40 || smChange < -0.3) result.skeletalMuscleMass = { status: "orange" };
+
+  // BMR
+  const expectedBmr = 10 * latest.weight + 6.25 * profile.heightCm - 5 * age - 5;
+  const bmrDiff = expectedBmr - latest.bmr;
+  const bmrChange = latest.bmr - first.bmr;
+  if (bmrDiff > 80 || bmrChange < -40) result.bmr = { status: "red" };
+  else if (bmrDiff > 50 || bmrChange < -20) result.bmr = { status: "orange" };
+
+  // Visceral fat
+  if (latest.visceralFat > 12) result.visceralFat = { status: "red" };
+  else if (latest.visceralFat > 9) result.visceralFat = { status: "orange" };
+
+  // Water
+  if (latest.water < 50) result.water = { status: "red" };
+  else if (latest.water < 55) result.water = { status: "orange" };
+
+  return result;
 }
