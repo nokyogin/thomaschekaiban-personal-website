@@ -489,7 +489,6 @@ export function HealthDashboard() {
                   opacity: health?.status === "green" ? 0.6 : 1,
                 }}
               />
-              )}
               <span
                 style={{
                   fontSize: "0.7rem",
