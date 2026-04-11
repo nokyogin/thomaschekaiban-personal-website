@@ -2,12 +2,18 @@ export interface UserProfile {
   heightCm: number;
   birthDate: string; // ISO date
   sex: "male" | "female";
+  goal: "athletic" | "general-fitness" | "weight-loss";
+  trainingStyle: string[];
+  injuries: string[];
 }
 
 export const userProfile: UserProfile = {
   heightCm: 176.5,
   birthDate: "1994-07-01",
   sex: "male",
+  goal: "athletic",
+  trainingStyle: ["strength", "cardio"],
+  injuries: ["meniscus-lesion"],
 };
 
 export function getUserAge(): number {

@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useCallback, useEffect } from "react";
 import { HealthRecord, userProfile, getUserAge } from "@/data/health-data";
-import { evaluateProblems, Problem } from "@/data/health-recommendations";
+import { evaluateProblems, generateAdvice } from "@/data/health-recommendations";
 import { CSVUploader } from "./csv-uploader";
 
 type MetricKey = keyof Omit<HealthRecord, "time">;
@@ -250,15 +250,6 @@ function getAllProblemKeys(data: HealthRecord[]): Set<MetricKey> {
   return new Set(problems.map((p) => p.metricKey));
 }
 
-const metricExplanations: Record<MetricKey, string> = {
-  weight: "Total body weight including muscle, fat, bone, and water. Best tracked as a weekly average rather than daily.",
-  bodyFat: "Percentage of your body composed of fat tissue. Athletic range for males is 6-17%.",
-  muscleMass: "Total mass of skeletal and smooth muscle in your body. Key driver of metabolism and athletic performance.",
-  skeletalMuscleMass: "The muscle attached to your skeleton that you actively control. Directly drives strength, speed, and power output.",
-  bmr: "Basal Metabolic Rate — calories your body burns at complete rest. Higher BMR means more lean mass.",
-  visceralFat: "Fat stored around internal organs. Levels 1-9 are healthy. The most dangerous type of fat for long-term health.",
-  water: "Percentage of your body composed of water. Above 55% indicates good hydration for athletic performance.",
-};
 
 export function HealthDashboard() {
   const [data, setData] = useState<HealthRecord[]>([]);
@@ -375,12 +366,7 @@ export function HealthDashboard() {
   const changePercent = firstValue !== 0 ? ((change / firstValue) * 100).toFixed(1) : "0.0";
 
   const warningKeys = useMemo(() => getAllProblemKeys(data), [data]);
-  const problemsByKey = useMemo(() => {
-    const problems = evaluateProblems(data, userProfile);
-    const map = new Map<MetricKey, Problem>();
-    for (const p of problems) map.set(p.metricKey, p);
-    return map;
-  }, [data]);
+  const advice = useMemo(() => generateAdvice(data, userProfile), [data]);
 
   return (
     <div style={{ padding: "1.5rem 2rem", maxWidth: 1100 }}>
@@ -601,28 +587,55 @@ export function HealthDashboard() {
 
       {hasData && (
       <>
-      {/* Metric description — compact, no layout shift */}
-      {(() => {
-        const problem = problemsByKey.get(selectedMetric);
-        return (
-          <div
-            style={{
-              fontSize: "0.82rem",
-              lineHeight: 1.5,
-              color: "var(--muted)",
-              marginBottom: "0.75rem",
-              padding: "0 0.25rem",
-            }}
-          >
-            {metricExplanations[selectedMetric]}
-            {problem && (
-              <span style={{ color: "#ef4444", fontWeight: 500 }}>
-                {" — "}{problem.title}: <span style={{ color: "var(--fg)", fontWeight: 400 }}>{problem.action}</span>
-              </span>
-            )}
-          </div>
-        );
-      })()}
+      {/* Unified advice panel — 3 pillars */}
+      {advice && (
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(3, 1fr)",
+            gap: "0.5rem",
+            marginBottom: "1rem",
+          }}
+        >
+          {([advice.activity, advice.diet, advice.recovery] as const).map((item) => {
+            const colors = {
+              activity: { accent: "#60a5fa", bg: "#60a5fa08", border: "#60a5fa20" },
+              diet: { accent: "#34d399", bg: "#34d39908", border: "#34d39920" },
+              recovery: { accent: "#a78bfa", bg: "#a78bfa08", border: "#a78bfa20" },
+            }[item.icon];
+            const urgencyBorder = item.urgency >= 2 ? "#ef444440" : item.urgency >= 1 ? colors.border : colors.border;
+            return (
+              <div
+                key={item.icon}
+                style={{
+                  padding: "0.65rem 0.75rem",
+                  background: colors.bg,
+                  border: `1px solid ${urgencyBorder}`,
+                  borderRadius: 10,
+                  fontSize: "0.78rem",
+                  lineHeight: 1.55,
+                  color: "var(--muted)",
+                }}
+              >
+                <div
+                  style={{
+                    fontSize: "0.65rem",
+                    fontWeight: 600,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.06em",
+                    color: item.urgency >= 2 ? "#ef4444" : colors.accent,
+                    marginBottom: "0.35rem",
+                  }}
+                >
+                  {item.label}
+                  {item.urgency >= 2 && " — Needs attention"}
+                </div>
+                {item.text}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Chart area */}
       <div
