@@ -598,12 +598,13 @@ export function HealthDashboard() {
           }}
         >
           {([advice.activity, advice.diet, advice.recovery] as const).map((item) => {
-            const colors = {
+            const colorMap: Record<string, { accent: string; bg: string; border: string }> = {
               activity: { accent: "#60a5fa", bg: "#60a5fa08", border: "#60a5fa20" },
               diet: { accent: "#34d399", bg: "#34d39908", border: "#34d39920" },
               recovery: { accent: "#a78bfa", bg: "#a78bfa08", border: "#a78bfa20" },
-            }[item.icon];
-            const urgencyBorder = item.urgency >= 2 ? "#ef444440" : item.urgency >= 1 ? colors.border : colors.border;
+            };
+            const colors = colorMap[item.icon] ?? colorMap.activity;
+            const urgencyBorder = item.urgency >= 2 ? "#ef444440" : colors.border;
             return (
               <div
                 key={item.icon}
