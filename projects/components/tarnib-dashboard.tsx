@@ -190,11 +190,14 @@ export function TarnibDashboard() {
 
       <div className="tarnib-vars">
         {/* Header */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "1.25rem", opacity: 0, animation: "rise 0.6s ease-out forwards" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, background: "var(--primary)", borderRadius: "var(--radius-sm)", display: "flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 14 }}>T</div>
-            <div style={{ fontSize: 16, fontWeight: 600, color: "var(--text)" }}>Tarnib</div>
-          </div>
+        <div style={{ marginBottom: "1.5rem", opacity: 0, animation: "rise 0.6s ease-out forwards" }}>
+          <h1 style={{ fontSize: "clamp(1.5rem, 4vw, 2rem)", fontWeight: 600, letterSpacing: "-0.02em" }}>
+            Tarnib Score Keeper
+          </h1>
+        </div>
+
+        {/* Goal selector */}
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem", opacity: 0, animation: "rise 0.6s ease-out 0.03s forwards" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 6, background: "var(--surface)", border: "1px solid var(--border)", borderRadius: "var(--radius-sm)", padding: "6px 10px" }}>
             <span style={{ fontSize: 12, color: "var(--text-2)", fontWeight: 500 }}>Goal</span>
             <select
