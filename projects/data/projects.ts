@@ -15,4 +15,9 @@ export const projects: Project[] = [
     name: "Wealth",
     description: "Personal wealth tracking and net worth evolution.",
   },
+  {
+    slug: "tarnib",
+    name: "Tarnib",
+    description: "Card game score tracker.",
+  },
 ];
