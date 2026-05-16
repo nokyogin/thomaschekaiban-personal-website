@@ -20,4 +20,9 @@ export const projects: Project[] = [
     name: "TSK",
     description: "Tarnib Score Keeper.",
   },
+  {
+    slug: "roll",
+    name: "RTR",
+    description: "Roule Thomas Roule.",
+  },
 ];
