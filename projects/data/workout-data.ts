@@ -6,9 +6,9 @@ export interface Exercise {
   id: string;
   name: string;
   /** Short execution cue shown under the name / on the timer. */
-  cue: string;
+  cue?: string;
   /** What it works, in plain French. */
-  target: string;
+  target?: string;
   group: MuscleGroup;
   unit: Unit;
 }
@@ -16,11 +16,9 @@ export interface Exercise {
 export interface WorkoutPlan {
   slug: string;
   name: string;
-  tagline: string;
+  tagline?: string;
   /** Gear needed. */
-  equipment: string;
-  /** Why this session exists — goal, constraints. */
-  context: string[];
+  equipment?: string;
   /** Seconds of max-effort work per exercise. */
   work: number;
   /** Seconds of transition between exercises. */
@@ -29,10 +27,12 @@ export interface WorkoutPlan {
   rounds: number;
   /** Seconds of rest between circuits. */
   rest: number;
-  warmup: { duration: string; moves: string[] };
-  cooldown: string;
+  warmup?: { duration: string; moves: string[] };
+  cooldown?: string;
   exercises: Exercise[];
-  notes: string[];
+  notes?: string[];
+  /** True for circuits created from the app rather than shipped in this file. */
+  custom?: boolean;
 }
 
 export const GROUP_LABELS: Record<MuscleGroup, string> = {
@@ -49,22 +49,23 @@ export const GROUP_COLORS: Record<MuscleGroup, string> = {
   core: "#a78bfa",
 };
 
-const crossfitStrength: WorkoutPlan = {
-  slug: "crossfit-strength",
-  name: "Strength training style CrossFit",
-  tagline: "Poids du corps + élastique",
+/**
+ * Order alternates push → legs → pull so no two consecutive exercises hit the
+ * same muscles: each group recovers while the next two run. The two hardest
+ * pushes are split (pompes early, dips mid-circuit) and the isometric hold
+ * closes the round.
+ */
+const wholeBody: WorkoutPlan = {
+  slug: "whole-body",
+  name: "Whole Body",
+  tagline: "Poids du corps + élastique — circuit complet, 30 min",
   equipment: "1 élastique + une chaise pour les dips.",
-  context: [
-    "Cycliste 61 kg, veut rester léger (pas d'hypertrophie lourde).",
-    "Objectif : endurance musculaire + équilibre haut du corps, complément vélo.",
-    "Circuit, chaque exo au MAX de reps propres, timer.",
-  ],
   work: 45,
   transition: 15,
   rounds: 4,
-  rest: 60,
+  rest: 40,
   warmup: {
-    duration: "4 min (hors des 35)",
+    duration: "4 min (hors des 30)",
     moves: [
       "Jumping jacks",
       "Squats à vide",
@@ -74,14 +75,6 @@ const crossfitStrength: WorkoutPlan = {
   },
   cooldown: "Étirements 3 min après.",
   exercises: [
-    {
-      id: "dips",
-      name: "Dips",
-      cue: "Sur chaise ou barres. Descente contrôlée, épaules basses.",
-      target: "Triceps / pecs",
-      group: "push",
-      unit: "reps",
-    },
     {
       id: "pompes",
       name: "Pompes",
@@ -99,14 +92,6 @@ const crossfitStrength: WorkoutPlan = {
       unit: "reps",
     },
     {
-      id: "fentes",
-      name: "Fentes alternées",
-      cue: "Genou arrière proche du sol, buste droit. Alterner.",
-      target: "Jambes / fessiers",
-      group: "legs",
-      unit: "reps",
-    },
-    {
       id: "rows",
       name: "Rows élastique",
       cue: "Tirer vers le VENTRE, coudes serrés, serre les omoplates.",
@@ -115,19 +100,27 @@ const crossfitStrength: WorkoutPlan = {
       unit: "reps",
     },
     {
+      id: "dips",
+      name: "Dips",
+      cue: "Sur chaise ou barres. Descente contrôlée, épaules basses.",
+      target: "Triceps / pecs",
+      group: "push",
+      unit: "reps",
+    },
+    {
+      id: "fentes",
+      name: "Fentes alternées",
+      cue: "Genou arrière proche du sol, buste droit. Alterner.",
+      target: "Jambes / fessiers",
+      group: "legs",
+      unit: "reps",
+    },
+    {
       id: "face-pulls",
       name: "Face pulls élastique",
       cue: "Tirer vers le VISAGE, coudes hauts et écartés.",
       target: "Épaule arrière + haut du dos",
       group: "pull",
-      unit: "reps",
-    },
-    {
-      id: "v-ups",
-      name: "Planche V (V-ups)",
-      cue: "Tuck-ups si trop dur. Sans élan, abdos qui travaillent.",
-      target: "Abdos",
-      group: "core",
       unit: "reps",
     },
     {
@@ -141,18 +134,19 @@ const crossfitStrength: WorkoutPlan = {
   ],
   notes: [
     "Max reps PROPRES : amplitude complète, forme correcte. On arrête si la forme casse (dos rond, demi-amplitude), même s'il reste du temps.",
-    "Tempo contrôlé : descente lente (~1-2 s), remontée tonique. Abdos sans élan. Planches = tenir le plus longtemps.",
+    "Tempo contrôlé : descente lente (~1-2 s), remontée tonique. Planche = tenir le plus longtemps.",
     "Noter les reps par exo → battre le score la fois suivante.",
-    "Équilibre du circuit : poussée x2, tirage x2, jambes x2, tronc x2.",
+    "Équilibre : poussée x2, tirage x2, jambes x2, gainage x1 — jamais deux fois le même groupe d'affilée.",
   ],
 };
 
-export const workoutPlans: WorkoutPlan[] = [crossfitStrength];
+/** Circuits shipped with the app. Others are created from the UI. */
+export const builtInPlans: WorkoutPlan[] = [wholeBody];
 
 /** Total session length in seconds: rounds x (exercises x (work + transition)) + rests. */
 export function planDuration(plan: WorkoutPlan): number {
   const roundLength = plan.exercises.length * (plan.work + plan.transition);
-  return plan.rounds * roundLength + (plan.rounds - 1) * plan.rest;
+  return plan.rounds * roundLength + Math.max(0, plan.rounds - 1) * plan.rest;
 }
 
 export type StepKind = "work" | "transition" | "rest";
@@ -197,4 +191,40 @@ export function sessionGrandTotal(log: SessionLog, plan: WorkoutPlan): number {
   return plan.exercises
     .filter((e) => e.unit === "reps")
     .reduce((sum, e) => sum + sessionTotal(log, e.id), 0);
+}
+
+// --- Circuit authoring ------------------------------------------------------
+
+function uid(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.floor(Math.random() * 1e4).toString(36)}`;
+}
+
+export function newExercise(): Exercise {
+  return { id: uid("ex"), name: "", cue: "", group: "push", unit: "reps" };
+}
+
+/** A blank circuit pre-filled with the timing that gives a round 30-min session. */
+export function emptyPlan(): WorkoutPlan {
+  return {
+    slug: uid("circuit"),
+    name: "",
+    tagline: "",
+    equipment: "",
+    work: 45,
+    transition: 15,
+    rounds: 4,
+    rest: 40,
+    exercises: [newExercise()],
+    custom: true,
+  };
+}
+
+export function duplicatePlan(plan: WorkoutPlan): WorkoutPlan {
+  return {
+    ...plan,
+    slug: uid("circuit"),
+    name: `${plan.name} (copie)`,
+    exercises: plan.exercises.map((e) => ({ ...e })),
+    custom: true,
+  };
 }
