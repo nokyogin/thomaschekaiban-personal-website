@@ -1,5 +1,3 @@
-export type MuscleGroup = "push" | "pull" | "legs" | "core";
-
 export type Unit = "reps" | "sec";
 
 export interface Exercise {
@@ -9,7 +7,6 @@ export interface Exercise {
   cue?: string;
   /** What it works, in plain French. */
   target?: string;
-  group: MuscleGroup;
   unit: Unit;
 }
 
@@ -35,20 +32,6 @@ export interface WorkoutPlan {
   custom?: boolean;
 }
 
-export const GROUP_LABELS: Record<MuscleGroup, string> = {
-  push: "Poussée",
-  pull: "Tirage",
-  legs: "Jambes",
-  core: "Tronc",
-};
-
-export const GROUP_COLORS: Record<MuscleGroup, string> = {
-  push: "#f59e0b",
-  pull: "#60a5fa",
-  legs: "#34d399",
-  core: "#a78bfa",
-};
-
 /**
  * Order alternates push → legs → pull so no two consecutive exercises hit the
  * same muscles: each group recovers while the next two run. The two hardest
@@ -58,14 +41,14 @@ export const GROUP_COLORS: Record<MuscleGroup, string> = {
 const wholeBody: WorkoutPlan = {
   slug: "whole-body",
   name: "Whole Body",
-  tagline: "Poids du corps + élastique — circuit complet, 30 min",
+  tagline: "Poids du corps + élastique — circuit complet",
   equipment: "1 élastique + une chaise pour les dips.",
   work: 45,
   transition: 15,
   rounds: 4,
   rest: 60,
   warmup: {
-    duration: "4 min (hors des 30)",
+    duration: "4 min (hors séance)",
     moves: [
       "Jumping jacks",
       "Squats à vide",
@@ -80,7 +63,6 @@ const wholeBody: WorkoutPlan = {
       name: "Pompes",
       cue: "Corps gainé, amplitude complète, coudes à ~45°.",
       target: "Pecs / épaules",
-      group: "push",
       unit: "reps",
     },
     {
@@ -88,7 +70,6 @@ const wholeBody: WorkoutPlan = {
       name: "Squats",
       cue: "Cuisses parallèles, talons au sol, dos neutre.",
       target: "Jambes",
-      group: "legs",
       unit: "reps",
     },
     {
@@ -96,7 +77,6 @@ const wholeBody: WorkoutPlan = {
       name: "Rows élastique",
       cue: "Tirer vers le VENTRE, coudes serrés, serre les omoplates.",
       target: "Dos + biceps",
-      group: "pull",
       unit: "reps",
     },
     {
@@ -104,7 +84,6 @@ const wholeBody: WorkoutPlan = {
       name: "Dips",
       cue: "Sur chaise ou barres. Descente contrôlée, épaules basses.",
       target: "Triceps / pecs",
-      group: "push",
       unit: "reps",
     },
     {
@@ -112,7 +91,6 @@ const wholeBody: WorkoutPlan = {
       name: "Fentes alternées",
       cue: "Genou arrière proche du sol, buste droit. Alterner.",
       target: "Jambes / fessiers",
-      group: "legs",
       unit: "reps",
     },
     {
@@ -120,7 +98,6 @@ const wholeBody: WorkoutPlan = {
       name: "Face pulls élastique",
       cue: "Tirer vers le VISAGE, coudes hauts et écartés.",
       target: "Épaule arrière + haut du dos",
-      group: "pull",
       unit: "reps",
     },
     {
@@ -128,7 +105,6 @@ const wholeBody: WorkoutPlan = {
       name: "Planche (tenue)",
       cue: "Bassin verrouillé, ligne épaules-hanches-talons. Tenir.",
       target: "Gainage",
-      group: "core",
       unit: "sec",
     },
   ],
@@ -136,7 +112,7 @@ const wholeBody: WorkoutPlan = {
     "Max reps PROPRES : amplitude complète, forme correcte. On arrête si la forme casse (dos rond, demi-amplitude), même s'il reste du temps.",
     "Tempo contrôlé : descente lente (~1-2 s), remontée tonique. Planche = tenir le plus longtemps.",
     "Noter les reps par exo → battre le score la fois suivante.",
-    "Équilibre : poussée x2, tirage x2, jambes x2, gainage x1 — jamais deux fois le même groupe d'affilée.",
+    "Ordre alterné : jamais deux fois le même type d'exercice d'affilée, la planche ferme la série.",
   ],
 };
 
@@ -213,7 +189,7 @@ function uid(prefix: string) {
 }
 
 export function newExercise(): Exercise {
-  return { id: uid("ex"), name: "", cue: "", group: "push", unit: "reps" };
+  return { id: uid("ex"), name: "", cue: "", unit: "reps" };
 }
 
 /** A blank circuit pre-filled with the timing that gives a round 30-min session. */
