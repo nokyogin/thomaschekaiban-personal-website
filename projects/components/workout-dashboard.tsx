@@ -5,6 +5,7 @@ import {
   builtInPlans,
   buildSteps,
   planDuration,
+  roundDuration,
   sessionTotal,
   sessionGrandTotal,
   emptyPlan,
@@ -169,6 +170,86 @@ function ScoreStepper({
         +
       </button>
       <span style={{ fontSize: 12, color: "var(--muted)" }}>{unit === "sec" ? "sec" : "reps"}</span>
+    </div>
+  );
+}
+
+/** Compact editable grid — used to correct a session's scores after the fact. */
+function ScoreGrid({
+  plan,
+  scores,
+  onChange,
+}: {
+  plan: WorkoutPlan;
+  scores: Record<string, (number | null)[]>;
+  onChange: (exId: string, round: number, value: number | null) => void;
+}) {
+  const cell: React.CSSProperties = {
+    width: 44,
+    padding: "5px 2px",
+    textAlign: "center",
+    background: "var(--bg)",
+    border: "1px solid var(--pill-border)",
+    borderRadius: 6,
+    color: "var(--fg)",
+    fontFamily: "inherit",
+    fontSize: 13,
+    fontWeight: 600,
+    fontVariantNumeric: "tabular-nums",
+    outline: "none",
+  };
+  const cols = `minmax(72px, 1fr) repeat(${plan.rounds}, 44px)`;
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <div style={{ minWidth: 72 + plan.rounds * 49, display: "grid", gap: 6 }}>
+        <div style={{ display: "grid", gridTemplateColumns: cols, gap: 5, alignItems: "center" }}>
+          <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+            Exercice
+          </span>
+          {Array.from({ length: plan.rounds }, (_, r) => (
+            <span key={r} style={{ fontSize: 10, color: "var(--muted)", textAlign: "center" }}>
+              S{r + 1}
+            </span>
+          ))}
+        </div>
+        {plan.exercises.map((ex) => (
+          <div key={ex.id} style={{ display: "grid", gridTemplateColumns: cols, gap: 5, alignItems: "center" }}>
+            <span
+              style={{
+                fontSize: "0.78rem",
+                color: "var(--bio-color)",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+              }}
+              title={ex.name}
+            >
+              {ex.name}
+            </span>
+            {Array.from({ length: plan.rounds }, (_, r) => {
+              const v = scores[ex.id]?.[r];
+              return (
+                <input
+                  key={r}
+                  type="number"
+                  inputMode="numeric"
+                  aria-label={`${ex.name} série ${r + 1}`}
+                  value={v === null || v === undefined ? "" : v}
+                  placeholder="—"
+                  onChange={(e) =>
+                    onChange(
+                      ex.id,
+                      r,
+                      e.target.value === "" ? null : Math.max(0, parseInt(e.target.value, 10) || 0)
+                    )
+                  }
+                  style={cell}
+                />
+              );
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -398,7 +479,13 @@ function CircuitEditor({
 export function WorkoutDashboard() {
   const [customPlans, setCustomPlans] = useState<WorkoutPlan[]>([]);
   const [sessions, setSessions] = useState<SessionLog[]>([]);
-  const allPlans = useMemo(() => [...builtInPlans, ...customPlans], [customPlans]);
+  // An edited built-in circuit is stored as an override sharing its slug, so
+  // the session history recorded against that slug follows the edit.
+  const allPlans = useMemo(() => {
+    const base = builtInPlans.map((p) => customPlans.find((c) => c.slug === p.slug) || p);
+    const extras = customPlans.filter((c) => !builtInPlans.some((p) => p.slug === c.slug));
+    return [...base, ...extras];
+  }, [customPlans]);
 
   const [planSlug, setPlanSlug] = useState(builtInPlans[0].slug);
   const plan = useMemo(
@@ -409,6 +496,12 @@ export function WorkoutDashboard() {
   const [view, setView] = useState<View>("plan");
   const [editing, setEditing] = useState<WorkoutPlan | null>(null);
   const [deleteArmed, setDeleteArmed] = useState(false);
+  const [resetArmed, setResetArmed] = useState(false);
+  const [fixOpen, setFixOpen] = useState(false);
+  const [sessionDraft, setSessionDraft] = useState<SessionLog | null>(null);
+
+  const isBuiltIn = builtInPlans.some((p) => p.slug === planSlug);
+  const isOverridden = isBuiltIn && customPlans.some((c) => c.slug === planSlug);
 
   // --- Run state -----------------------------------------------------------
   const steps = useMemo(() => buildSteps(plan), [plan]);
@@ -536,6 +629,7 @@ export function WorkoutDashboard() {
       audioRef.current?.resume();
     } catch {}
     setScores(emptyScores(plan));
+    setFixOpen(false);
     setCompleted(false);
     setStepIdx(0);
     setDisplay(steps[0].duration);
@@ -617,6 +711,24 @@ export function WorkoutDashboard() {
     [sessions, customPlans, persist]
   );
 
+  const saveSessionDraft = useCallback(() => {
+    if (!sessionDraft) return;
+    persist(
+      sessions.map((s) => (s.id === sessionDraft.id ? sessionDraft : s)),
+      customPlans
+    );
+    setSessionDraft(null);
+  }, [sessionDraft, sessions, customPlans, persist]);
+
+  const editDraftScore = useCallback((exId: string, round: number, value: number | null) => {
+    setSessionDraft((d) => {
+      if (!d) return d;
+      const arr = [...(d.scores[exId] || [])];
+      arr[round] = value;
+      return { ...d, scores: { ...d.scores, [exId]: arr } };
+    });
+  }, []);
+
   // --- Circuits ------------------------------------------------------------
   const saveCircuit = useCallback(
     (next: WorkoutPlan) => {
@@ -632,8 +744,19 @@ export function WorkoutDashboard() {
     [customPlans, sessions, persist]
   );
 
+  const resetCircuit = useCallback(() => {
+    if (!isOverridden) return;
+    if (!resetArmed) {
+      setResetArmed(true);
+      setTimeout(() => setResetArmed(false), 2500);
+      return;
+    }
+    setResetArmed(false);
+    persist(sessions, customPlans.filter((c) => c.slug !== plan.slug));
+  }, [isOverridden, resetArmed, sessions, customPlans, persist, plan.slug]);
+
   const deleteCircuit = useCallback(() => {
-    if (!plan.custom) return;
+    if (isBuiltIn) return;
     if (!deleteArmed) {
       setDeleteArmed(true);
       setTimeout(() => setDeleteArmed(false), 2500);
@@ -642,7 +765,7 @@ export function WorkoutDashboard() {
     setDeleteArmed(false);
     persist(sessions, customPlans.filter((c) => c.slug !== plan.slug));
     setPlanSlug(builtInPlans[0].slug);
-  }, [plan, deleteArmed, sessions, customPlans, persist]);
+  }, [isBuiltIn, plan.slug, deleteArmed, sessions, customPlans, persist]);
 
   // --- Derived run values --------------------------------------------------
   const step = steps[Math.min(stepIdx, steps.length - 1)];
@@ -718,7 +841,7 @@ export function WorkoutDashboard() {
             {[
               fmt(planDuration(plan)),
               `${plan.exercises.length} exos`,
-              `${plan.rounds} séries`,
+              `${plan.rounds} x ${fmt(roundDuration(plan))}`,
               `${plan.work} s effort / ${plan.transition} s transition`,
               `${plan.rest} s de pause`,
             ].map((t) => (
@@ -760,18 +883,21 @@ export function WorkoutDashboard() {
             >
               Dupliquer
             </button>
-            {plan.custom && (
-              <button
-                onClick={() => {
-                  setEditing(plan);
-                  setView("edit");
-                }}
-                style={ghost()}
-              >
-                Modifier
+            <button
+              onClick={() => {
+                setEditing({ ...plan, custom: true });
+                setView("edit");
+              }}
+              style={ghost()}
+            >
+              Modifier
+            </button>
+            {isOverridden && (
+              <button onClick={resetCircuit} style={ghost(resetArmed ? "#f59e0b" : "var(--muted)")}>
+                {resetArmed ? "Confirmer" : "Réinitialiser"}
               </button>
             )}
-            {plan.custom && (
+            {!isBuiltIn && (
               <button onClick={deleteCircuit} style={ghost(deleteArmed ? "#ef4444" : "var(--muted)")}>
                 {deleteArmed ? "Confirmer" : "Supprimer"}
               </button>
@@ -1134,6 +1260,20 @@ export function WorkoutDashboard() {
           })}
         </div>
 
+        <div style={{ ...CARD, marginBottom: "1rem" }}>
+          <button
+            onClick={() => setFixOpen((o) => !o)}
+            style={{ ...CARD_TITLE, width: "100%", textAlign: "left", background: "transparent", cursor: "pointer", borderBottom: fixOpen ? "1px solid var(--bio-border)" : "none", fontFamily: "inherit" }}
+          >
+            {fixOpen ? "▾" : "▸"} Corriger les scores
+          </button>
+          {fixOpen && (
+            <div style={{ padding: "12px 16px" }}>
+              <ScoreGrid plan={plan} scores={scores} onChange={setScore} />
+            </div>
+          )}
+        </div>
+
         <div style={{ display: "grid", gap: 10 }}>
           <button onClick={saveSession} style={{ ...btn("#34d399"), width: "100%" }}>
             Enregistrer
@@ -1166,6 +1306,16 @@ export function WorkoutDashboard() {
                     {sessionGrandTotal(s, plan)} reps
                   </span>
                   <button
+                    onClick={() =>
+                      setSessionDraft((d) =>
+                        d?.id === s.id ? null : { ...s, scores: JSON.parse(JSON.stringify(s.scores)) }
+                      )
+                    }
+                    style={{ ...ghost(sessionDraft?.id === s.id ? "var(--fg)" : "var(--muted)"), padding: "0.2rem 0.6rem", fontSize: "0.72rem" }}
+                  >
+                    {sessionDraft?.id === s.id ? "Fermer" : "Modifier"}
+                  </button>
+                  <button
                     onClick={() => deleteSession(s.id)}
                     style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 12, padding: "2px 6px", borderRadius: 4 }}
                     onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
@@ -1176,6 +1326,19 @@ export function WorkoutDashboard() {
                   </button>
                 </span>
               </div>
+              {sessionDraft?.id === s.id ? (
+                <div style={{ padding: "12px 16px", display: "grid", gap: 12 }}>
+                  <ScoreGrid plan={plan} scores={sessionDraft.scores} onChange={editDraftScore} />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={saveSessionDraft} style={{ ...btn("#34d399"), flex: 1, padding: "0.55rem 1rem", fontSize: "0.85rem" }}>
+                      Enregistrer
+                    </button>
+                    <button onClick={() => setSessionDraft(null)} style={{ ...btn(), padding: "0.55rem 1rem", fontSize: "0.85rem" }}>
+                      Annuler
+                    </button>
+                  </div>
+                </div>
+              ) : (
               <div style={{ padding: "10px 16px", display: "grid", gap: 6 }}>
                 {plan.exercises.map((ex) => (
                   <div key={ex.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--bio-color)" }}>
@@ -1191,6 +1354,7 @@ export function WorkoutDashboard() {
                   </div>
                 ))}
               </div>
+              )}
             </div>
           ))
         )}
