@@ -25,4 +25,9 @@ export const projects: Project[] = [
     name: "RTR",
     description: "Roule Thomas Roule.",
   },
+  {
+    slug: "hiit",
+    name: "HIIT",
+    description: "Workout plans and interval timer.",
+  },
 ];
