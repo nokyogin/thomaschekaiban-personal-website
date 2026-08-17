@@ -63,7 +63,7 @@ const wholeBody: WorkoutPlan = {
   work: 45,
   transition: 15,
   rounds: 4,
-  rest: 40,
+  rest: 60,
   warmup: {
     duration: "4 min (hors des 30)",
     moves: [
@@ -143,10 +143,19 @@ const wholeBody: WorkoutPlan = {
 /** Circuits shipped with the app. Others are created from the UI. */
 export const builtInPlans: WorkoutPlan[] = [wholeBody];
 
-/** Total session length in seconds: rounds x (exercises x (work + transition)) + rests. */
+/**
+ * One circuit: every exercise's work interval, plus a transition *between*
+ * exercises only — the last exercise of a round runs straight into the rest,
+ * which is the transition. 7 x 45 s + 6 x 15 s = 6:45.
+ */
+export function roundDuration(plan: WorkoutPlan): number {
+  const n = plan.exercises.length;
+  return n * plan.work + Math.max(0, n - 1) * plan.transition;
+}
+
+/** Total session length: rounds x round length + the rests between rounds. */
 export function planDuration(plan: WorkoutPlan): number {
-  const roundLength = plan.exercises.length * (plan.work + plan.transition);
-  return plan.rounds * roundLength + Math.max(0, plan.rounds - 1) * plan.rest;
+  return plan.rounds * roundDuration(plan) + Math.max(0, plan.rounds - 1) * plan.rest;
 }
 
 export type StepKind = "work" | "transition" | "rest";
@@ -162,10 +171,14 @@ export interface Step {
 
 export function buildSteps(plan: WorkoutPlan): Step[] {
   const steps: Step[] = [];
+  const last = plan.exercises.length - 1;
   for (let r = 0; r < plan.rounds; r++) {
     for (let e = 0; e < plan.exercises.length; e++) {
       steps.push({ kind: "work", duration: plan.work, round: r, exercise: e });
-      steps.push({ kind: "transition", duration: plan.transition, round: r, exercise: e });
+      // No transition after the last exercise: the rest between rounds is it.
+      if (e < last) {
+        steps.push({ kind: "transition", duration: plan.transition, round: r, exercise: e });
+      }
     }
     if (r < plan.rounds - 1) {
       steps.push({ kind: "rest", duration: plan.rest, round: r, exercise: plan.exercises.length - 1 });
@@ -213,7 +226,7 @@ export function emptyPlan(): WorkoutPlan {
     work: 45,
     transition: 15,
     rounds: 4,
-    rest: 40,
+    rest: 60,
     exercises: [newExercise()],
     custom: true,
   };
