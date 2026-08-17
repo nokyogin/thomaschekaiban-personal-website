@@ -11,10 +11,7 @@ import {
   emptyPlan,
   duplicatePlan,
   newExercise,
-  GROUP_LABELS,
-  GROUP_COLORS,
   Exercise,
-  MuscleGroup,
   Unit,
   WorkoutPlan,
   SessionLog,
@@ -395,8 +392,9 @@ function CircuitEditor({
                   justifyContent: "center",
                   fontSize: 12,
                   fontWeight: 700,
-                  color: GROUP_COLORS[ex.group],
-                  background: `${GROUP_COLORS[ex.group]}18`,
+                  color: "var(--muted)",
+                  background: "var(--bg)",
+                  border: "1px solid var(--pill-border)",
                 }}
               >
                 {i + 1}
@@ -415,17 +413,6 @@ function CircuitEditor({
               style={{ ...INPUT, fontSize: "0.8rem" }}
             />
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-              <select
-                value={ex.group}
-                onChange={(e) => setEx(i, { group: e.target.value as MuscleGroup })}
-                style={{ ...INPUT, width: "auto", cursor: "pointer" }}
-              >
-                {(Object.keys(GROUP_LABELS) as MuscleGroup[]).map((g) => (
-                  <option key={g} value={g}>
-                    {GROUP_LABELS[g]}
-                  </option>
-                ))}
-              </select>
               <select
                 value={ex.unit}
                 onChange={(e) => setEx(i, { unit: e.target.value as Unit })}
@@ -730,18 +717,33 @@ export function WorkoutDashboard() {
   }, []);
 
   // --- Circuits ------------------------------------------------------------
-  const saveCircuit = useCallback(
+  const upsertCircuit = useCallback(
     (next: WorkoutPlan) => {
       const exists = customPlans.some((c) => c.slug === next.slug);
       persist(
         sessions,
         exists ? customPlans.map((c) => (c.slug === next.slug ? next : c)) : [...customPlans, next]
       );
+    },
+    [customPlans, sessions, persist]
+  );
+
+  const saveCircuit = useCallback(
+    (next: WorkoutPlan) => {
+      upsertCircuit(next);
       setPlanSlug(next.slug);
       setEditing(null);
       setView("plan");
     },
-    [customPlans, sessions, persist]
+    [upsertCircuit]
+  );
+
+  /** Timing tweaked straight from the plan card, without opening the editor. */
+  const setTiming = useCallback(
+    (patch: Partial<Pick<WorkoutPlan, "work" | "transition" | "rounds" | "rest">>) => {
+      upsertCircuit({ ...plan, ...patch, custom: true });
+    },
+    [plan, upsertCircuit]
   );
 
   const resetCircuit = useCallback(() => {
@@ -779,11 +781,7 @@ export function WorkoutDashboard() {
   const total = planDuration(plan);
   const sessionLeft = total - elapsed - (step.duration - display);
   const phaseColor =
-    step.kind === "work"
-      ? GROUP_COLORS[currentExercise.group]
-      : step.kind === "rest"
-      ? "#60a5fa"
-      : "#888";
+    step.kind === "work" ? "#34d399" : step.kind === "rest" ? "#60a5fa" : "#888";
   const phaseLabel =
     step.kind === "work" ? "Max reps" : step.kind === "rest" ? "Pause" : "Transition";
 
@@ -837,29 +835,20 @@ export function WorkoutDashboard() {
           {plan.equipment && (
             <div style={{ fontSize: "0.8rem", color: "var(--bio-color)" }}>Matériel : {plan.equipment}</div>
           )}
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, margin: "14px 0 16px" }}>
-            {[
-              fmt(planDuration(plan)),
-              `${plan.exercises.length} exos`,
-              `${plan.rounds} x ${fmt(roundDuration(plan))}`,
-              `${plan.work} s effort / ${plan.transition} s transition`,
-              `${plan.rest} s de pause`,
-            ].map((t) => (
-              <span
-                key={t}
-                style={{
-                  fontSize: 11,
-                  fontWeight: 500,
-                  color: "var(--bio-color)",
-                  background: "var(--bg)",
-                  border: "1px solid var(--pill-border)",
-                  borderRadius: 100,
-                  padding: "3px 10px",
-                }}
-              >
-                {t}
-              </span>
-            ))}
+          <div style={{ margin: "14px 0 16px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
+              <NumField label="Effort (s)" value={plan.work} min={5} onChange={(v) => setTiming({ work: v })} />
+              <NumField label="Entre exos (s)" value={plan.transition} min={0} onChange={(v) => setTiming({ transition: v })} />
+              <NumField label="Séries" value={plan.rounds} min={1} onChange={(v) => setTiming({ rounds: v })} />
+              <NumField label="Entre séries (s)" value={plan.rest} min={0} onChange={(v) => setTiming({ rest: v })} />
+            </div>
+            <div style={{ marginTop: 10, fontSize: 12, color: "var(--muted)", fontVariantNumeric: "tabular-nums" }}>
+              Total <b style={{ color: "var(--fg)" }}>{fmt(planDuration(plan))}</b>
+              {"  ·  "}
+              {plan.exercises.length} exos
+              {"  ·  "}
+              séries de {fmt(roundDuration(plan))}
+            </div>
           </div>
 
           {/* Primary action gets its own full-width row — nothing beside it on mobile */}
@@ -962,8 +951,9 @@ export function WorkoutDashboard() {
                     justifyContent: "center",
                     fontSize: 12,
                     fontWeight: 700,
-                    color: GROUP_COLORS[ex.group],
-                    background: `${GROUP_COLORS[ex.group]}18`,
+                    color: "var(--muted)",
+                    background: "var(--bg)",
+                    border: "1px solid var(--pill-border)",
                     fontVariantNumeric: "tabular-nums",
                   }}
                 >
@@ -972,20 +962,6 @@ export function WorkoutDashboard() {
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>{ex.name}</span>
-                    <span
-                      style={{
-                        fontSize: 10,
-                        fontWeight: 600,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.04em",
-                        color: GROUP_COLORS[ex.group],
-                        border: `1px solid ${GROUP_COLORS[ex.group]}55`,
-                        borderRadius: 100,
-                        padding: "1px 7px",
-                      }}
-                    >
-                      {GROUP_LABELS[ex.group]}
-                    </span>
                     {ex.target && <span style={{ fontSize: 11, color: "var(--muted)" }}>{ex.target}</span>}
                   </div>
                   {ex.cue && (
