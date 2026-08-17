@@ -5,6 +5,7 @@ import { HealthDashboard } from "@/components/health-dashboard";
 import { WealthDashboard } from "@/components/wealth-dashboard";
 import { TarnibDashboard } from "@/components/tarnib-dashboard";
 import { RollDashboard } from "@/components/roll-dashboard";
+import { WorkoutDashboard } from "@/components/workout-dashboard";
 
 export function generateStaticParams() {
   return projects.map((p) => ({ slug: p.slug }));
@@ -50,6 +51,14 @@ export default async function ProjectPage({
     return (
       <DashboardLayout>
         <RollDashboard />
+      </DashboardLayout>
+    );
+  }
+
+  if (slug === "hiit") {
+    return (
+      <DashboardLayout>
+        <WorkoutDashboard />
       </DashboardLayout>
     );
   }
