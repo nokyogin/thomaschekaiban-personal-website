@@ -4,7 +4,6 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { HealthDashboard } from "@/components/health-dashboard";
 import { WealthDashboard } from "@/components/wealth-dashboard";
 import { TarnibDashboard } from "@/components/tarnib-dashboard";
-import { RollDashboard } from "@/components/roll-dashboard";
 import { WorkoutDashboard } from "@/components/workout-dashboard";
 
 export function generateStaticParams() {
@@ -43,14 +42,6 @@ export default async function ProjectPage({
     return (
       <DashboardLayout>
         <TarnibDashboard />
-      </DashboardLayout>
-    );
-  }
-
-  if (slug === "roll") {
-    return (
-      <DashboardLayout>
-        <RollDashboard />
       </DashboardLayout>
     );
   }

@@ -163,23 +163,63 @@ export function buildSteps(plan: WorkoutPlan): Step[] {
   return steps;
 }
 
-/** One logged session: scores[exerciseId][roundIndex] = reps (or seconds held). */
+/**
+ * A logged session. Scores are stored per exercise *name* rather than per
+ * circuit, so the same movement is tracked across every circuit it appears in
+ * — the history is one common record book, not one per workout.
+ */
+export interface SessionEntry {
+  /** Normalised exercise name — the join key across circuits. */
+  key: string;
+  name: string;
+  unit: Unit;
+  values: (number | null)[];
+}
+
 export interface SessionLog {
   id: string;
   planSlug: string;
+  planName: string;
   date: string;
-  scores: Record<string, (number | null)[]>;
+  entries: SessionEntry[];
 }
 
-export function sessionTotal(log: SessionLog, exerciseId: string): number {
-  const arr = log.scores[exerciseId] || [];
-  return arr.reduce((sum: number, v) => sum + (v || 0), 0);
+export function exerciseKey(name: string): string {
+  return name.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
-export function sessionGrandTotal(log: SessionLog, plan: WorkoutPlan): number {
-  return plan.exercises
-    .filter((e) => e.unit === "reps")
-    .reduce((sum, e) => sum + sessionTotal(log, e.id), 0);
+export function entryTotal(entry: SessionEntry): number {
+  return entry.values.reduce((sum: number, v) => sum + (v || 0), 0);
+}
+
+export function entryBest(entry: SessionEntry): number {
+  return entry.values.reduce((best: number, v) => Math.max(best, v || 0), 0);
+}
+
+/** Reps only — holds are counted in seconds and would swamp the total. */
+export function sessionGrandTotal(log: SessionLog): number {
+  return log.entries.filter((e) => e.unit === "reps").reduce((sum, e) => sum + entryTotal(e), 0);
+}
+
+/** Older logs stored scores keyed by exercise id; re-key them by name. */
+export function normalizeSession(raw: unknown, plans: WorkoutPlan[]): SessionLog | null {
+  const log = raw as Partial<SessionLog> & { scores?: Record<string, (number | null)[]> };
+  if (!log || typeof log.id !== "string") return null;
+  if (Array.isArray(log.entries)) return log as SessionLog;
+  if (!log.scores) return null;
+  const plan = plans.find((p) => p.slug === log.planSlug);
+  const entries: SessionEntry[] = Object.entries(log.scores).map(([id, values]) => {
+    const ex = plan?.exercises.find((e) => e.id === id);
+    const name = ex?.name || id;
+    return { key: exerciseKey(name), name, unit: ex?.unit || "reps", values };
+  });
+  return {
+    id: log.id,
+    planSlug: log.planSlug || "",
+    planName: log.planName || plan?.name || "Circuit",
+    date: log.date || new Date(0).toISOString(),
+    entries,
+  };
 }
 
 // --- Circuit authoring ------------------------------------------------------

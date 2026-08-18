@@ -6,6 +6,9 @@ import { useState, useEffect } from "react";
 import { signOut } from "next-auth/react";
 import { projects } from "@/data/projects";
 
+/** Tabs that render extra actions underneath; others get no empty padded strip. */
+const PROJECTS_WITH_ACTIONS = ["health", "wealth"];
+
 export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
@@ -162,7 +165,7 @@ export function Sidebar() {
                 >
                   {project.name}
                 </Link>
-                {isActive && (
+                {isActive && PROJECTS_WITH_ACTIONS.includes(project.slug) && (
                   <div
                     style={{
                       display: "flex",
