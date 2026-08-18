@@ -6,8 +6,11 @@ import {
   buildSteps,
   planDuration,
   roundDuration,
-  sessionTotal,
   sessionGrandTotal,
+  exerciseKey,
+  entryTotal,
+  entryBest,
+  normalizeSession,
   emptyPlan,
   duplicatePlan,
   newExercise,
@@ -15,6 +18,7 @@ import {
   Unit,
   WorkoutPlan,
   SessionLog,
+  SessionEntry,
 } from "@/data/workout-data";
 
 const STORAGE_KEY = "workout_v1";
@@ -173,13 +177,15 @@ function ScoreStepper({
 
 /** Compact editable grid — used to correct a session's scores after the fact. */
 function ScoreGrid({
-  plan,
-  scores,
+  rows,
+  rounds,
+  get,
   onChange,
 }: {
-  plan: WorkoutPlan;
-  scores: Record<string, (number | null)[]>;
-  onChange: (exId: string, round: number, value: number | null) => void;
+  rows: { id: string; name: string }[];
+  rounds: number;
+  get: (id: string, round: number) => number | null | undefined;
+  onChange: (id: string, round: number, value: number | null) => void;
 }) {
   const cell: React.CSSProperties = {
     width: 44,
@@ -195,21 +201,21 @@ function ScoreGrid({
     fontVariantNumeric: "tabular-nums",
     outline: "none",
   };
-  const cols = `minmax(72px, 1fr) repeat(${plan.rounds}, 44px)`;
+  const cols = `minmax(72px, 1fr) repeat(${rounds}, 44px)`;
   return (
     <div style={{ overflowX: "auto" }}>
-      <div style={{ minWidth: 72 + plan.rounds * 49, display: "grid", gap: 6 }}>
+      <div style={{ minWidth: 72 + rounds * 49, display: "grid", gap: 6 }}>
         <div style={{ display: "grid", gridTemplateColumns: cols, gap: 5, alignItems: "center" }}>
           <span style={{ fontSize: 10, color: "var(--muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
             Exercice
           </span>
-          {Array.from({ length: plan.rounds }, (_, r) => (
+          {Array.from({ length: rounds }, (_, r) => (
             <span key={r} style={{ fontSize: 10, color: "var(--muted)", textAlign: "center" }}>
               S{r + 1}
             </span>
           ))}
         </div>
-        {plan.exercises.map((ex) => (
+        {rows.map((ex) => (
           <div key={ex.id} style={{ display: "grid", gridTemplateColumns: cols, gap: 5, alignItems: "center" }}>
             <span
               style={{
@@ -223,8 +229,8 @@ function ScoreGrid({
             >
               {ex.name}
             </span>
-            {Array.from({ length: plan.rounds }, (_, r) => {
-              const v = scores[ex.id]?.[r];
+            {Array.from({ length: rounds }, (_, r) => {
+              const v = get(ex.id, r);
               return (
                 <input
                   key={r}
@@ -360,7 +366,7 @@ function CircuitEditor({
             />
           </label>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(110px, 1fr))", gap: 10 }}>
-            <NumField label="Effort (s)" value={draft.work} min={5} onChange={(v) => set({ work: v })} />
+            <NumField label="Exos (s)" value={draft.work} min={5} onChange={(v) => set({ work: v })} />
             <NumField label="Transition (s)" value={draft.transition} min={0} onChange={(v) => set({ transition: v })} />
             <NumField label="Séries" value={draft.rounds} min={1} onChange={(v) => set({ rounds: v })} />
             <NumField label="Pause (s)" value={draft.rest} min={0} onChange={(v) => set({ rest: v })} />
@@ -511,8 +517,16 @@ export function WorkoutDashboard() {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed?.sessions)) setSessions(parsed.sessions);
-        if (Array.isArray(parsed?.circuits)) setCustomPlans(parsed.circuits);
+        const circuits: WorkoutPlan[] = Array.isArray(parsed?.circuits) ? parsed.circuits : [];
+        if (circuits.length) setCustomPlans(circuits);
+        if (Array.isArray(parsed?.sessions)) {
+          const known = [...builtInPlans, ...circuits];
+          setSessions(
+            parsed.sessions
+              .map((raw: unknown) => normalizeSession(raw, known))
+              .filter(Boolean) as SessionLog[]
+          );
+        }
       }
     } catch {}
   }, []);
@@ -665,33 +679,52 @@ export function WorkoutDashboard() {
     });
   }, []);
 
-  const planSessions = useMemo(
-    () => sessions.filter((s) => s.planSlug === plan.slug),
-    [sessions, plan.slug]
+  // --- Cross-circuit exercise history --------------------------------------
+  // Every lookup goes through the exercise name, so a movement keeps one
+  // history whichever circuit it was done in.
+  const historyByExercise = useMemo(() => {
+    const map = new Map<string, { entry: SessionEntry; date: string; planName: string }[]>();
+    for (const s of sessions) {
+      for (const entry of s.entries) {
+        const list = map.get(entry.key) || [];
+        list.push({ entry, date: s.date, planName: s.planName });
+        map.set(entry.key, list);
+      }
+    }
+    for (const list of map.values()) list.sort((a, b) => (a.date < b.date ? 1 : -1));
+    return map;
+  }, [sessions]);
+
+  const lastFor = useCallback(
+    (name: string) => historyByExercise.get(exerciseKey(name))?.[0],
+    [historyByExercise]
   );
-  const lastSession = planSessions[0];
 
   const personalBest = useCallback(
-    (exId: string) => {
-      let best = 0;
-      for (const s of planSessions) {
-        for (const v of s.scores[exId] || []) best = Math.max(best, v || 0);
-      }
-      return best;
-    },
-    [planSessions]
+    (name: string) =>
+      (historyByExercise.get(exerciseKey(name)) || []).reduce(
+        (best, h) => Math.max(best, entryBest(h.entry)),
+        0
+      ),
+    [historyByExercise]
   );
 
   const saveSession = useCallback(() => {
     const log: SessionLog = {
       id: String(Date.now()),
       planSlug: plan.slug,
+      planName: plan.name,
       date: new Date().toISOString(),
-      scores,
+      entries: plan.exercises.map((ex) => ({
+        key: exerciseKey(ex.name),
+        name: ex.name,
+        unit: ex.unit,
+        values: scores[ex.id] || [],
+      })),
     };
     persist([log, ...sessions], customPlans);
     setView("plan");
-  }, [plan.slug, scores, sessions, customPlans, persist]);
+  }, [plan, scores, sessions, customPlans, persist]);
 
   const deleteSession = useCallback(
     (id: string) => persist(sessions.filter((s) => s.id !== id), customPlans),
@@ -707,12 +740,18 @@ export function WorkoutDashboard() {
     setSessionDraft(null);
   }, [sessionDraft, sessions, customPlans, persist]);
 
-  const editDraftScore = useCallback((exId: string, round: number, value: number | null) => {
+  const editDraftScore = useCallback((key: string, round: number, value: number | null) => {
     setSessionDraft((d) => {
       if (!d) return d;
-      const arr = [...(d.scores[exId] || [])];
-      arr[round] = value;
-      return { ...d, scores: { ...d.scores, [exId]: arr } };
+      return {
+        ...d,
+        entries: d.entries.map((e) => {
+          if (e.key !== key) return e;
+          const values = [...e.values];
+          values[round] = value;
+          return { ...e, values };
+        }),
+      };
     });
   }, []);
 
@@ -837,7 +876,7 @@ export function WorkoutDashboard() {
           )}
           <div style={{ margin: "14px 0 16px" }}>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 10 }}>
-              <NumField label="Effort (s)" value={plan.work} min={5} onChange={(v) => setTiming({ work: v })} />
+              <NumField label="Exos (s)" value={plan.work} min={5} onChange={(v) => setTiming({ work: v })} />
               <NumField label="Entre exos (s)" value={plan.transition} min={0} onChange={(v) => setTiming({ transition: v })} />
               <NumField label="Séries" value={plan.rounds} min={1} onChange={(v) => setTiming({ rounds: v })} />
               <NumField label="Entre séries (s)" value={plan.rest} min={0} onChange={(v) => setTiming({ rest: v })} />
@@ -861,7 +900,7 @@ export function WorkoutDashboard() {
 
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
             <button onClick={() => setView("history")} style={ghost()}>
-              Historique ({planSessions.length})
+              Historique ({sessions.length})
             </button>
             <button
               onClick={() => {
@@ -928,7 +967,8 @@ export function WorkoutDashboard() {
             <span style={{ fontWeight: 500, color: "var(--muted)" }}>{plan.work} s chacun</span>
           </div>
           {plan.exercises.map((ex, i) => {
-            const last = lastSession ? sessionTotal(lastSession, ex.id) : 0;
+            const previous = lastFor(ex.name);
+            const last = previous ? entryTotal(previous.entry) : 0;
             return (
               <div
                 key={ex.id}
@@ -1165,12 +1205,13 @@ export function WorkoutDashboard() {
                 onBump={(d) => bumpScore(currentExercise.id, step.round, d)}
               />
               <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 10 }}>
-                {lastSession
+                {lastFor(currentExercise.name)
                   ? `Dernière fois (série ${step.round + 1}) : ${
-                      lastSession.scores[currentExercise.id]?.[step.round] ?? "—"
+                      lastFor(currentExercise.name)?.entry.values[step.round] ?? "—"
                     }`
-                  : "Première séance — pose une base."}
-                {personalBest(currentExercise.id) > 0 && `  ·  Record : ${personalBest(currentExercise.id)}`}
+                  : "Premier passage sur cet exo — pose une base."}
+                {personalBest(currentExercise.name) > 0 &&
+                  `  ·  Record : ${personalBest(currentExercise.name)}`}
               </div>
             </div>
           </div>
@@ -1180,7 +1221,18 @@ export function WorkoutDashboard() {
   }
 
   function renderSummary() {
-    const draft: SessionLog = { id: "draft", planSlug: plan.slug, date: new Date().toISOString(), scores };
+    const draft: SessionLog = {
+      id: "draft",
+      planSlug: plan.slug,
+      planName: plan.name,
+      date: new Date().toISOString(),
+      entries: plan.exercises.map((ex) => ({
+        key: exerciseKey(ex.name),
+        name: ex.name,
+        unit: ex.unit,
+        values: scores[ex.id] || [],
+      })),
+    };
     return (
       <div style={{ opacity: 0, animation: "rise 0.5s ease-out forwards" }}>
         <div style={{ ...CARD, padding: "1.25rem", marginBottom: "1rem", textAlign: "center" }}>
@@ -1188,18 +1240,19 @@ export function WorkoutDashboard() {
             {completed ? "Séance terminée" : "Séance interrompue"}
           </div>
           <div style={{ fontSize: "2.5rem", fontWeight: 700, letterSpacing: "-0.03em", lineHeight: 1.2, fontVariantNumeric: "tabular-nums" }}>
-            {sessionGrandTotal(draft, plan)}
+            {sessionGrandTotal(draft)}
           </div>
           <div style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-            reps au total{lastSession ? ` · dernière séance : ${sessionGrandTotal(lastSession, plan)}` : ""}
+            reps au total{sessions[0] ? ` · séance précédente : ${sessionGrandTotal(sessions[0])}` : ""}
           </div>
         </div>
 
         <div style={{ ...CARD, marginBottom: "1rem" }}>
           <div style={CARD_TITLE}>Détail par exercice</div>
           {plan.exercises.map((ex, i) => {
-            const now = sessionTotal(draft, ex.id);
-            const before = lastSession ? sessionTotal(lastSession, ex.id) : 0;
+            const now = (scores[ex.id] || []).reduce((sum: number, v) => sum + (v || 0), 0);
+            const previous = lastFor(ex.name);
+            const before = previous ? entryTotal(previous.entry) : 0;
             const delta = before ? now - before : null;
             return (
               <div
@@ -1245,7 +1298,12 @@ export function WorkoutDashboard() {
           </button>
           {fixOpen && (
             <div style={{ padding: "12px 16px" }}>
-              <ScoreGrid plan={plan} scores={scores} onChange={setScore} />
+              <ScoreGrid
+                rows={plan.exercises}
+                rounds={plan.rounds}
+                get={(id, r) => scores[id]?.[r]}
+                onChange={setScore}
+              />
             </div>
           )}
         </div>
@@ -1263,76 +1321,131 @@ export function WorkoutDashboard() {
   }
 
   function renderHistory() {
+    const keys = Array.from(historyByExercise.keys());
     return (
       <div style={{ opacity: 0, animation: "rise 0.5s ease-out forwards" }}>
         <button onClick={() => setView("plan")} style={{ ...ghost("var(--bio-color)"), marginBottom: "1rem" }}>
           ← Retour au plan
         </button>
-        {planSessions.length === 0 ? (
+
+        {sessions.length === 0 ? (
           <div style={{ ...CARD, padding: "2rem 1rem", textAlign: "center", color: "var(--muted)", fontSize: "0.9rem" }}>
             Aucune séance enregistrée pour l&apos;instant.
           </div>
         ) : (
-          planSessions.map((s) => (
-            <div key={s.id} style={{ ...CARD, marginBottom: "0.75rem" }}>
-              <div style={{ ...CARD_TITLE, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <span>{fmtDate(s.date)}</span>
-                <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <span style={{ fontWeight: 500, color: "var(--muted)" }}>
-                    {sessionGrandTotal(s, plan)} reps
-                  </span>
-                  <button
-                    onClick={() =>
-                      setSessionDraft((d) =>
-                        d?.id === s.id ? null : { ...s, scores: JSON.parse(JSON.stringify(s.scores)) }
-                      )
-                    }
-                    style={{ ...ghost(sessionDraft?.id === s.id ? "var(--fg)" : "var(--muted)"), padding: "0.2rem 0.6rem", fontSize: "0.72rem" }}
-                  >
-                    {sessionDraft?.id === s.id ? "Fermer" : "Modifier"}
-                  </button>
-                  <button
-                    onClick={() => deleteSession(s.id)}
-                    style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 12, padding: "2px 6px", borderRadius: 4 }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
-                    aria-label="Supprimer la séance"
-                  >
-                    ✕
-                  </button>
-                </span>
+          <>
+            {/* One record book across every circuit */}
+            <div style={{ ...CARD, marginBottom: "1rem" }}>
+              <div style={{ ...CARD_TITLE, display: "flex", justifyContent: "space-between" }}>
+                <span>Records par exercice</span>
+                <span style={{ fontWeight: 500, color: "var(--muted)" }}>tous circuits</span>
               </div>
-              {sessionDraft?.id === s.id ? (
-                <div style={{ padding: "12px 16px", display: "grid", gap: 12 }}>
-                  <ScoreGrid plan={plan} scores={sessionDraft.scores} onChange={editDraftScore} />
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={saveSessionDraft} style={{ ...btn("#34d399"), flex: 1, padding: "0.55rem 1rem", fontSize: "0.85rem" }}>
-                      Enregistrer
-                    </button>
-                    <button onClick={() => setSessionDraft(null)} style={{ ...btn(), padding: "0.55rem 1rem", fontSize: "0.85rem" }}>
-                      Annuler
-                    </button>
-                  </div>
-                </div>
-              ) : (
-              <div style={{ padding: "10px 16px", display: "grid", gap: 6 }}>
-                {plan.exercises.map((ex) => (
-                  <div key={ex.id} style={{ display: "flex", justifyContent: "space-between", fontSize: "0.8rem", color: "var(--bio-color)" }}>
-                    <span>{ex.name}</span>
-                    <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)" }}>
-                      {(s.scores[ex.id] || []).map((v) => (v === null ? "—" : v)).join(" · ")}
-                      {"  →  "}
+              {keys.map((key, i) => {
+                const list = historyByExercise.get(key) || [];
+                const best = list.reduce((b, h) => Math.max(b, entryBest(h.entry)), 0);
+                const latest = list[0];
+                const unit = latest.entry.unit === "sec" ? " s" : "";
+                return (
+                  <div
+                    key={key}
+                    style={{
+                      padding: "10px 16px",
+                      borderBottom: i < keys.length - 1 ? "1px solid var(--bio-border)" : "none",
+                    }}
+                  >
+                    <div style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--fg)" }}>
+                      {latest.entry.name}
+                    </div>
+                    <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                      meilleure série{" "}
                       <b style={{ color: "var(--fg)" }}>
-                        {sessionTotal(s, ex.id)}
-                        {ex.unit === "sec" && " s"}
+                        {best}
+                        {unit}
                       </b>
-                    </span>
+                      {"  ·  "}dernière séance{" "}
+                      <b style={{ color: "var(--fg)" }}>
+                        {entryTotal(latest.entry)}
+                        {unit}
+                      </b>
+                      {"  ·  "}
+                      {list.length} séance{list.length > 1 ? "s" : ""}
+                    </div>
                   </div>
-                ))}
-              </div>
-              )}
+                );
+              })}
             </div>
-          ))
+
+            {/* Every session, whichever circuit it came from */}
+            {sessions.map((s) => (
+              <div key={s.id} style={{ ...CARD, marginBottom: "0.75rem" }}>
+                <div style={{ ...CARD_TITLE, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <span style={{ minWidth: 0 }}>
+                    {fmtDate(s.date)}
+                    <span style={{ fontWeight: 500, color: "var(--muted)", fontSize: 11 }}>
+                      {"  ·  "}
+                      {s.planName}
+                    </span>
+                  </span>
+                  <span style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                    <span style={{ fontWeight: 500, color: "var(--muted)" }}>{sessionGrandTotal(s)} reps</span>
+                    <button
+                      onClick={() =>
+                        setSessionDraft((d) =>
+                          d?.id === s.id ? null : { ...s, entries: s.entries.map((e) => ({ ...e, values: [...e.values] })) }
+                        )
+                      }
+                      style={{ ...ghost(sessionDraft?.id === s.id ? "var(--fg)" : "var(--muted)"), padding: "0.2rem 0.6rem", fontSize: "0.72rem" }}
+                    >
+                      {sessionDraft?.id === s.id ? "Fermer" : "Modifier"}
+                    </button>
+                    <button
+                      onClick={() => deleteSession(s.id)}
+                      style={{ background: "transparent", border: "none", color: "var(--muted)", cursor: "pointer", fontSize: 12, padding: "2px 6px", borderRadius: 4 }}
+                      onMouseEnter={(e) => (e.currentTarget.style.color = "#ef4444")}
+                      onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+                      aria-label="Supprimer la séance"
+                    >
+                      ✕
+                    </button>
+                  </span>
+                </div>
+                {sessionDraft?.id === s.id ? (
+                  <div style={{ padding: "12px 16px", display: "grid", gap: 12 }}>
+                    <ScoreGrid
+                      rows={sessionDraft.entries.map((e) => ({ id: e.key, name: e.name }))}
+                      rounds={sessionDraft.entries.reduce((n, e) => Math.max(n, e.values.length), 0)}
+                      get={(key, r) => sessionDraft.entries.find((e) => e.key === key)?.values[r]}
+                      onChange={editDraftScore}
+                    />
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button onClick={saveSessionDraft} style={{ ...btn("#34d399"), flex: 1, padding: "0.55rem 1rem", fontSize: "0.85rem" }}>
+                        Enregistrer
+                      </button>
+                      <button onClick={() => setSessionDraft(null)} style={{ ...btn(), padding: "0.55rem 1rem", fontSize: "0.85rem" }}>
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ padding: "10px 16px", display: "grid", gap: 6 }}>
+                    {s.entries.map((e) => (
+                      <div key={e.key} style={{ display: "flex", justifyContent: "space-between", gap: 10, fontSize: "0.8rem", color: "var(--bio-color)" }}>
+                        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.name}</span>
+                        <span style={{ fontVariantNumeric: "tabular-nums", color: "var(--muted)", flexShrink: 0 }}>
+                          {e.values.map((v) => (v === null ? "—" : v)).join(" · ")}
+                          {"  →  "}
+                          <b style={{ color: "var(--fg)" }}>
+                            {entryTotal(e)}
+                            {e.unit === "sec" && " s"}
+                          </b>
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </>
         )}
       </div>
     );
@@ -1344,9 +1457,6 @@ export function WorkoutDashboard() {
         <h1 style={{ fontSize: "clamp(1.5rem, 4vw, 2rem)", fontWeight: 600, letterSpacing: "-0.02em" }}>
           High Intensity Interval Training
         </h1>
-        <p style={{ color: "var(--muted)", fontSize: "0.85rem", marginTop: 4 }}>
-          Circuits chronométrés · scores à battre
-        </p>
       </div>
 
       {view === "run" ? (
