@@ -79,13 +79,15 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 0.82rem;
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
       color: var(--muted);
       cursor: pointer;
-      background: none;
-      border: none;
+      background: var(--bio-bg);
+      border: 1px solid var(--bio-border);
       font-family: inherit;
-      padding: 0.5rem;
+      padding: 0;
       transition: color 0.2s ease;
       -webkit-tap-highlight-color: transparent;
       opacity: 0;
@@ -172,7 +174,7 @@
     .card-date {
       font-size: 0.72rem;
       font-weight: 500;
-      color: var(--muted);
+      color: #8a8a8a;
       white-space: nowrap;
       padding: 0.15rem 0.2rem;
     }
@@ -226,9 +228,27 @@
       object-fit: contain;
     }
 
+    .card-logo--siwa img {
+      transform: scale(1.16);
+    }
+
     .card-logo--vizzia { background: #e07020; }
-    .card-logo--roger { background: #fff; }
-    .card-logo--siwa { background: #3b6ff5; }
+    .card-logo--roger {
+      background: #fff;
+      border-color: #d4d4d8;
+    }
+
+    html.dark .card-logo--roger {
+      border-color: #3f3f46;
+    }
+
+    html.dark .card-date {
+      color: #b5b5b5;
+    }
+    .card-logo--siwa {
+      background: linear-gradient(150deg, #5b8bfb 0%, #2f62e6 100%);
+      border-color: rgba(0,0,0,0.08);
+    }
 
     .card-logo-fallback {
       font-weight: 600;
@@ -450,7 +470,7 @@
         <div class="section-label">Currently</div>
         <a href="https://siwa.io" target="_blank" rel="noopener" class="card">
           <div class="card-logo card-logo--siwa">
-            <img src="siwa-logo.jpg" alt="Siwa logo" style="object-fit:cover">
+            <img src="siwa-logo.png" alt="Siwa logo">
           </div>
           <div class="card-body">
             <div class="card-header">
@@ -525,20 +545,18 @@
   <button class="theme-switch" aria-label="Toggle theme">
     <svg class="icon-moon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
     <svg class="icon-sun" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-    <span class="toggle-label">Switch to dark mode</span>
   </button>
   <script>
     (function(){
       // Theme toggle
       var html = document.documentElement;
       var toggle = document.querySelector('.theme-switch');
-      var label = document.querySelector('.toggle-label');
       var stored = localStorage.getItem('theme');
       if (stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
         html.classList.add('dark');
       }
       function updateLabel() {
-        label.textContent = html.classList.contains('dark') ? 'Switch to light mode' : 'Switch to dark mode';
+        toggle.setAttribute('aria-label', html.classList.contains('dark') ? 'Switch to light mode' : 'Switch to dark mode');
       }
       updateLabel();
       toggle.addEventListener('click', function() {
