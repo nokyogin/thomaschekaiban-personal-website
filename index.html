@@ -176,7 +176,7 @@
       font-weight: 500;
       color: #8a8a8a;
       white-space: nowrap;
-      padding: 0.15rem 0.2rem;
+      padding: 0.15rem 0 0.15rem 0.2rem;
     }
 
     .card {
@@ -335,6 +335,8 @@
       text-transform: uppercase;
       letter-spacing: 0.04em;
       padding: 0.15rem 0.5rem;
+      /* cancel the trailing letter-spacing so the border sits flush right */
+      padding-right: calc(0.5rem - 0.04em);
       border-radius: 100px;
       border: 1px solid var(--pill-border);
       color: var(--muted);
