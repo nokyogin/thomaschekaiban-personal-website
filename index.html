@@ -173,8 +173,7 @@
       font-weight: 500;
       color: var(--muted);
       white-space: nowrap;
-      margin-left: auto;
-      padding-left: 0.5rem;
+      padding: 0.15rem 0.2rem;
     }
 
     .card {
@@ -227,7 +226,7 @@
     }
 
     .card-logo--vizzia { background: #e07020; }
-    .card-logo--roger { background: #1f2937; }
+    .card-logo--roger { background: #fff; }
     .card-logo--siwa { background: #3b6ff5; }
 
     .card-logo-fallback {
@@ -302,11 +301,11 @@
     .card-tags {
       display: flex;
       flex-direction: column;
-      gap: 0.3rem;
+      gap: 0.35rem;
       margin-left: auto;
       flex-shrink: 0;
-      align-items: stretch;
-      width: 36px;
+      align-items: flex-end;
+      text-align: right;
     }
 
     .card-tag {
@@ -314,7 +313,7 @@
       font-weight: 500;
       text-transform: uppercase;
       letter-spacing: 0.04em;
-      padding: 0.15rem 0;
+      padding: 0.15rem 0.5rem;
       border-radius: 100px;
       border: 1px solid var(--pill-border);
       color: var(--muted);
@@ -449,9 +448,9 @@
       <section class="section">
         <div class="section-label">Currently</div>
         <a href="https://siwa.io" target="_blank" rel="noopener" class="card">
-        <div class="card-logo card-logo--siwa">
-          <img src="siwa-logo.jpg" alt="Siwa logo" style="object-fit:cover">
-        </div>
+          <div class="card-logo card-logo--siwa">
+            <img src="siwa-logo.jpg" alt="Siwa logo" style="object-fit:cover">
+          </div>
           <div class="card-body">
             <div class="card-header">
               <span class="card-company">Siwa</span>
@@ -460,8 +459,8 @@
             <div class="card-desc">Word &amp; puzzle game platform</div>
           </div>
           <div class="card-tags">
-            <span class="card-tag">B2C</span>
-            <span class="card-tag">B2B</span>
+            <span class="card-date">2024 &rarr; Present</span>
+            <span class="card-tag">B2C / B2B</span>
           </div>
         </a>
       </section>
@@ -476,26 +475,28 @@
             <div class="card-header">
               <span class="card-company">Vizzia</span>
               <span class="card-role-tag card-role-tag--vizzia">Head of Product</span>
-              <span class="card-date">2025 / 2026</span>
             </div>
             <div class="card-desc">Keeping cities clean and safe</div>
           </div>
           <div class="card-tags">
-            <span class="card-tag">B2G</span>
-            <span class="card-tag">B2B</span>
+            <span class="card-date">2025 &rarr; 2026</span>
+            <span class="card-tag">B2G / B2B</span>
           </div>
         </a>
         <a href="https://roger.com" target="_blank" rel="noopener" class="card">
           <div class="card-logo card-logo--roger">
-            <img src="https://www.google.com/s2/favicons?domain=roger.com&sz=128" alt="Roger logo" onerror="this.style.display='none';this.nextElementSibling.style.display='block'">
-            <span class="card-logo-fallback" style="display:none">R</span>
+            <img src="roger-logo.jpg" alt="Roger logo" style="object-fit:cover">
           </div>
           <div class="card-body">
             <div class="card-header">
               <span class="card-company">Roger</span>
-              <span class="card-role-tag card-role-tag--roger">Product</span>
+              <span class="card-role-tag card-role-tag--roger">CPO</span>
             </div>
-            <div class="card-desc">Product work</div>
+            <div class="card-desc">Inter-company collaboration SaaS</div>
+          </div>
+          <div class="card-tags">
+            <span class="card-date">2022 &rarr; 2024</span>
+            <span class="card-tag">B2B2C</span>
           </div>
         </a>
       </section>
