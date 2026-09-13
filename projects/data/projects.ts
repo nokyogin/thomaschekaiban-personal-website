@@ -21,6 +21,11 @@ export const projects: Project[] = [
     description: "Tarnib Score Keeper.",
   },
   {
+    slug: "subs",
+    name: "Subs",
+    description: "All recurring subscriptions and what they cost.",
+  },
+  {
     slug: "hiit",
     name: "HIIT",
     description: "Workout plans and interval timer.",
