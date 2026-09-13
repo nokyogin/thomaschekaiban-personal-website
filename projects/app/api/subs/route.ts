@@ -16,7 +16,7 @@ const UNAUTHORIZED = NextResponse.json({ error: "Unauthorized" }, { status: 401 
 function parseInput(
   body: Record<string, unknown>
 ): { input: SubscriptionInput } | { error: string } {
-  const { name, price, cycle, category, nextPayment, notes } = body;
+  const { name, price, cycle, category, notes } = body;
 
   if (typeof name !== "string" || !name.trim()) {
     return { error: "Name is required" };
@@ -27,16 +27,6 @@ function parseInput(
   if (cycle !== "monthly" && cycle !== "yearly") {
     return { error: "Cycle must be 'monthly' or 'yearly'" };
   }
-  if (nextPayment != null && typeof nextPayment !== "string") {
-    return { error: "Next payment must be a date string" };
-  }
-  if (
-    typeof nextPayment === "string" &&
-    nextPayment !== "" &&
-    !/^\d{4}-\d{2}-\d{2}$/.test(nextPayment)
-  ) {
-    return { error: "Next payment must be in YYYY-MM-DD format" };
-  }
 
   return {
     input: {
@@ -44,7 +34,6 @@ function parseInput(
       price: Math.round(price * 100) / 100,
       cycle,
       category: typeof category === "string" ? category.trim() : "",
-      nextPayment: typeof nextPayment === "string" && nextPayment ? nextPayment : null,
       notes: typeof notes === "string" ? notes.trim() : "",
     },
   };

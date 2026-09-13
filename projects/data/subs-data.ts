@@ -6,7 +6,6 @@ export interface Subscription {
   price: number; // in euros, for one billing cycle
   cycle: BillingCycle;
   category: string;
-  nextPayment: string | null; // ISO date (YYYY-MM-DD)
   notes: string;
   createdAt: string; // ISO datetime string
 }
