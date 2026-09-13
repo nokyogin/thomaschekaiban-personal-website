@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import {
   Subscription,
   BillingCycle,
@@ -20,14 +20,13 @@ const COLORS = [
   "#fb7185", "#38bdf8", "#facc15", "#2dd4bf",
 ];
 
-type SortKey = "name" | "monthly" | "yearly" | "next";
+type SortKey = "name" | "monthly" | "yearly";
 
 interface FormState {
   name: string;
   price: string;
   cycle: BillingCycle;
   category: string;
-  nextPayment: string;
   notes: string;
 }
 
@@ -36,18 +35,8 @@ const EMPTY_FORM: FormState = {
   price: "",
   cycle: "monthly",
   category: "",
-  nextPayment: "",
   notes: "",
 };
-
-function formatDate(d: string | null) {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-GB", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  });
-}
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
@@ -70,6 +59,167 @@ const labelStyle: React.CSSProperties = {
   color: "var(--muted)",
   marginBottom: "0.35rem",
 };
+
+interface Option {
+  value: string;
+  label: string;
+}
+
+/** Custom select: a pill trigger with a floating menu, styled like the rest of the UI. */
+function Dropdown({
+  value,
+  options,
+  onChange,
+  ariaLabel,
+  align = "left",
+  fullWidth = false,
+}: {
+  value: string;
+  options: Option[];
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  align?: "left" | "right";
+  fullWidth?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onPointerDown);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [open]);
+
+  const current = options.find((o) => o.value === value);
+
+  return (
+    <div
+      ref={ref}
+      style={{ position: "relative", width: fullWidth ? "100%" : "auto" }}
+    >
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "0.6rem",
+          width: fullWidth ? "100%" : "auto",
+          padding: "0.55rem 0.7rem",
+          fontSize: "0.85rem",
+          fontFamily: "inherit",
+          color: "var(--fg)",
+          background: "var(--bg)",
+          border: `1px solid ${open ? "var(--input-focus)" : "var(--input-border)"}`,
+          borderRadius: 8,
+          cursor: "pointer",
+          transition: "border-color 0.15s ease",
+        }}
+      >
+        <span style={{ whiteSpace: "nowrap" }}>{current?.label ?? ""}</span>
+        <svg
+          width="13"
+          height="13"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="var(--muted)"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          style={{
+            flexShrink: 0,
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.15s ease",
+          }}
+        >
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+
+      {open && (
+        <div
+          role="listbox"
+          style={{
+            position: "absolute",
+            top: "calc(100% + 4px)",
+            left: align === "left" ? 0 : "auto",
+            right: align === "right" ? 0 : "auto",
+            minWidth: "100%",
+            padding: 4,
+            background: "var(--bg)",
+            border: "1px solid var(--bio-border)",
+            borderRadius: 10,
+            boxShadow: "0 8px 24px var(--card-shadow-2)",
+            zIndex: 20,
+            maxHeight: 260,
+            overflowY: "auto",
+          }}
+        >
+          {options.map((o) => {
+            const selected = o.value === value;
+            return (
+              <button
+                key={o.value}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: "1rem",
+                  width: "100%",
+                  padding: "0.45rem 0.6rem",
+                  fontSize: "0.85rem",
+                  fontFamily: "inherit",
+                  textAlign: "left",
+                  whiteSpace: "nowrap",
+                  color: selected ? "var(--fg)" : "var(--bio-color)",
+                  fontWeight: selected ? 500 : 400,
+                  background: selected ? "var(--sidebar-active)" : "transparent",
+                  border: "none",
+                  borderRadius: 6,
+                  cursor: "pointer",
+                }}
+                onMouseEnter={(e) => {
+                  if (!selected) e.currentTarget.style.background = "var(--sidebar-hover)";
+                }}
+                onMouseLeave={(e) => {
+                  if (!selected) e.currentTarget.style.background = "transparent";
+                }}
+              >
+                {o.label}
+                {selected && (
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function StatCard({
   label,
@@ -184,16 +334,17 @@ function SubForm({
         </div>
 
         <div>
-          <label style={labelStyle} htmlFor="sub-cycle">Billing</label>
-          <select
-            id="sub-cycle"
-            style={{ ...inputStyle, cursor: "pointer" }}
+          <span style={labelStyle}>Billing</span>
+          <Dropdown
+            ariaLabel="Billing cycle"
+            fullWidth
             value={form.cycle}
-            onChange={(e) => set("cycle", e.target.value)}
-          >
-            <option value="monthly">Monthly</option>
-            <option value="yearly">Yearly</option>
-          </select>
+            options={[
+              { value: "monthly", label: "Monthly" },
+              { value: "yearly", label: "Yearly" },
+            ]}
+            onChange={(v) => set("cycle", v)}
+          />
         </div>
 
         <div>
@@ -211,17 +362,6 @@ function SubForm({
               <option key={c} value={c} />
             ))}
           </datalist>
-        </div>
-
-        <div>
-          <label style={labelStyle} htmlFor="sub-next">Next payment</label>
-          <input
-            id="sub-next"
-            type="date"
-            style={inputStyle}
-            value={form.nextPayment}
-            onChange={(e) => set("nextPayment", e.target.value)}
-          />
         </div>
 
         <div>
@@ -337,22 +477,15 @@ export function SubsDashboard() {
     return list.sort((a, b) => {
       if (sortKey === "name") return a.name.localeCompare(b.name);
       if (sortKey === "monthly") return monthlyCost(b) - monthlyCost(a);
-      if (sortKey === "yearly") return yearlyCost(b) - yearlyCost(a);
-      // next payment: dated first, soonest first
-      if (!a.nextPayment && !b.nextPayment) return a.name.localeCompare(b.name);
-      if (!a.nextPayment) return 1;
-      if (!b.nextPayment) return -1;
-      return a.nextPayment.localeCompare(b.nextPayment);
+      return yearlyCost(b) - yearlyCost(a);
     });
   }, [subs, sortKey, categoryFilter]);
 
   const totals = useMemo(() => {
-    const monthly = subs.reduce((a, s) => a + monthlyCost(s), 0);
     return {
-      monthly,
+      monthly: subs.reduce((a, s) => a + monthlyCost(s), 0),
       yearly: subs.reduce((a, s) => a + yearlyCost(s), 0),
       count: subs.length,
-      average: subs.length ? monthly / subs.length : 0,
     };
   }, [subs]);
 
@@ -361,7 +494,6 @@ export function SubsDashboard() {
     price: parseFloat(form.price),
     cycle: form.cycle,
     category: form.category.trim(),
-    nextPayment: form.nextPayment || null,
     notes: form.notes.trim(),
   });
 
@@ -448,7 +580,6 @@ export function SubsDashboard() {
     price: String(s.price),
     cycle: s.cycle,
     category: s.category,
-    nextPayment: s.nextPayment ?? "",
     notes: s.notes,
   });
 
@@ -492,7 +623,6 @@ export function SubsDashboard() {
         <StatCard label="Per month" value={fmt.format(totals.monthly)} />
         <StatCard label="Per year" value={fmt.format(totals.yearly)} />
         <StatCard label="Subscriptions" value={String(totals.count)} />
-        <StatCard label="Avg / month" value={fmt.format(totals.average)} />
       </div>
 
       {error && (
@@ -545,31 +675,28 @@ export function SubsDashboard() {
 
         <div style={{ flex: 1 }} />
 
-        <select
-          aria-label="Filter by category"
+        <Dropdown
+          ariaLabel="Filter by category"
+          align="right"
           value={categoryFilter ?? ""}
-          onChange={(e) => setCategoryFilter(e.target.value || null)}
-          style={{ ...inputStyle, width: "auto", cursor: "pointer" }}
-        >
-          <option value="">All categories</option>
-          {categories.map((c) => (
-            <option key={c} value={c}>
-              {c}
-            </option>
-          ))}
-        </select>
+          options={[
+            { value: "", label: "All categories" },
+            ...categories.map((c) => ({ value: c, label: c })),
+          ]}
+          onChange={(v) => setCategoryFilter(v || null)}
+        />
 
-        <select
-          aria-label="Sort by"
+        <Dropdown
+          ariaLabel="Sort by"
+          align="right"
           value={sortKey}
-          onChange={(e) => setSortKey(e.target.value as SortKey)}
-          style={{ ...inputStyle, width: "auto", cursor: "pointer" }}
-        >
-          <option value="monthly">Sort: monthly cost</option>
-          <option value="yearly">Sort: yearly cost</option>
-          <option value="name">Sort: name</option>
-          <option value="next">Sort: next payment</option>
-        </select>
+          options={[
+            { value: "monthly", label: "Sort: monthly cost" },
+            { value: "yearly", label: "Sort: yearly cost" },
+            { value: "name", label: "Sort: name" },
+          ]}
+          onChange={(v) => setSortKey(v as SortKey)}
+        />
       </div>
 
       {adding && (
@@ -681,16 +808,17 @@ export function SubsDashboard() {
                       </span>
                     )}
                   </div>
-                  <div
-                    style={{
-                      fontSize: "0.75rem",
-                      color: "var(--muted)",
-                      marginTop: "0.2rem",
-                    }}
-                  >
-                    Next: {formatDate(s.nextPayment)}
-                    {s.notes ? ` · ${s.notes}` : ""}
-                  </div>
+                  {s.notes && (
+                    <div
+                      style={{
+                        fontSize: "0.75rem",
+                        color: "var(--muted)",
+                        marginTop: "0.2rem",
+                      }}
+                    >
+                      {s.notes}
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ textAlign: "right", minWidth: 110 }}>

@@ -9,7 +9,6 @@ export async function ensureSubsTable() {
       price REAL NOT NULL,
       cycle TEXT NOT NULL DEFAULT 'monthly',
       category TEXT NOT NULL DEFAULT '',
-      next_payment DATE,
       notes TEXT NOT NULL DEFAULT '',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
@@ -22,7 +21,6 @@ interface SubRow {
   price: number;
   cycle: string;
   category: string;
-  next_payment: Date | null;
   created_at: Date;
   notes: string;
 }
@@ -35,9 +33,6 @@ function toSubscription(r: Record<string, unknown>): Subscription {
     price: row.price,
     cycle: (row.cycle === "yearly" ? "yearly" : "monthly") as BillingCycle,
     category: row.category ?? "",
-    nextPayment: row.next_payment
-      ? new Date(row.next_payment).toISOString().slice(0, 10)
-      : null,
     notes: row.notes ?? "",
     createdAt: new Date(row.created_at).toISOString(),
   };
@@ -45,7 +40,7 @@ function toSubscription(r: Record<string, unknown>): Subscription {
 
 export async function getAllSubscriptions(): Promise<Subscription[]> {
   const { rows } = await sql`
-    SELECT id, name, price, cycle, category, next_payment, notes, created_at
+    SELECT id, name, price, cycle, category, notes, created_at
     FROM subscriptions
     ORDER BY created_at ASC
   `;
@@ -57,7 +52,6 @@ export interface SubscriptionInput {
   price: number;
   cycle: BillingCycle;
   category: string;
-  nextPayment: string | null;
   notes: string;
 }
 
@@ -65,16 +59,15 @@ export async function insertSubscription(
   input: SubscriptionInput
 ): Promise<Subscription> {
   const { rows } = await sql`
-    INSERT INTO subscriptions (name, price, cycle, category, next_payment, notes)
+    INSERT INTO subscriptions (name, price, cycle, category, notes)
     VALUES (
       ${input.name},
       ${input.price},
       ${input.cycle},
       ${input.category},
-      ${input.nextPayment},
       ${input.notes}
     )
-    RETURNING id, name, price, cycle, category, next_payment, notes, created_at
+    RETURNING id, name, price, cycle, category, notes, created_at
   `;
   return toSubscription(rows[0]);
 }
@@ -89,10 +82,9 @@ export async function updateSubscription(
         price = ${input.price},
         cycle = ${input.cycle},
         category = ${input.category},
-        next_payment = ${input.nextPayment},
         notes = ${input.notes}
     WHERE id = ${id}
-    RETURNING id, name, price, cycle, category, next_payment, notes, created_at
+    RETURNING id, name, price, cycle, category, notes, created_at
   `;
   return rows[0] ? toSubscription(rows[0]) : null;
 }
