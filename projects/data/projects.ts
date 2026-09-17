@@ -26,6 +26,11 @@ export const projects: Project[] = [
     description: "All recurring subscriptions and what they cost.",
   },
   {
+    slug: "debts",
+    name: "Debts",
+    description: "Money lent and borrowed, and every repayment.",
+  },
+  {
     slug: "hiit",
     name: "HIIT",
     description: "Workout plans and interval timer.",

@@ -7,7 +7,7 @@ import { signOut } from "next-auth/react";
 import { projects } from "@/data/projects";
 
 /** Tabs that render extra actions underneath; others get no empty padded strip. */
-const PROJECTS_WITH_ACTIONS = ["health", "wealth", "subs"];
+const PROJECTS_WITH_ACTIONS = ["health", "wealth", "subs", "debts"];
 
 export function Sidebar() {
   const pathname = usePathname();
@@ -255,6 +255,33 @@ export function Sidebar() {
                           <line x1="5" y1="12" x2="19" y2="12" />
                         </svg>
                         Add subscription
+                      </button>
+                    )}
+                    {project.slug === "debts" && (
+                      <button
+                        onClick={() => window.dispatchEvent(new CustomEvent("sidebar:add-debt"))}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.5rem",
+                          padding: "0.3rem 0",
+                          fontSize: "0.78rem",
+                          fontWeight: 400,
+                          fontFamily: "inherit",
+                          color: "var(--muted)",
+                          background: "transparent",
+                          border: "none",
+                          cursor: "pointer",
+                          transition: "color 0.15s ease",
+                        }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "var(--fg)")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "var(--muted)")}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="12" y1="5" x2="12" y2="19" />
+                          <line x1="5" y1="12" x2="19" y2="12" />
+                        </svg>
+                        Add debt
                       </button>
                     )}
                     {project.slug === "wealth" && (
